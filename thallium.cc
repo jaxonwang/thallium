@@ -1,17 +1,17 @@
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <queue>
 #include <string>
-#include <chrono>
+#include <thread>
 #include <unordered_map>
 #include <vector>
-#include <thread>
 
-#include "common.h"
+#include "common.hpp"
+#include "serialize.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 using namespace std;
-using SerializedList = unique_ptr<vector<string>>;
 
 struct closure_holder {};
 
@@ -31,7 +31,7 @@ public:
   const string f_id;
   const Place place;
   static void init_statics() { current_id = 0; }
-  Execution(const Place &place,const string &f_id)
+  Execution(const Place &place, const string &f_id)
       : id(current_id++), f_id(f_id), place(place) {}
   Execution() = delete;
 };
@@ -39,8 +39,8 @@ int Execution::current_id;
 
 class PreRunExecution : public Execution {
 public:
-  const SerializedList s_l;
-  PreRunExecution(const Place &place,const string &f_id, SerializedList &&s_l)
+  const BuffersPtr s_l;
+  PreRunExecution(const Place &place, const string &f_id, BuffersPtr &&s_l)
       : Execution(place, f_id), s_l(move(s_l)) {}
 };
 
@@ -56,39 +56,6 @@ class AsyncLocalExecution : public RunningExecution {};
 class ThreadExecutionHandler {};
 
 class Submitter {};
-
-template <typename T>
-string my_serialized_method(T &a) { // TODO: user implement serialization api
-  return to_string(a);
-}
-
-string my_serialized_method(string &a) { return a; }
-
-class Serializer {
-private:
-  static SerializedList _serialize(SerializedList &&s_l) { return move(s_l); }
-  template <class T, class... ArgTypes>
-  static SerializedList _serialize(SerializedList &&s_l, T t,
-                                   ArgTypes... args) {
-    s_l->push_back(my_serialized_method(t));
-    return _serialize(move(s_l), args...);
-  }
-
-public:
-  template <class... ArgTypes>
-  static SerializedList serialize(ArgTypes... args) {
-    SerializedList s_l{new vector<string>};
-    return _serialize(move(s_l), args...);
-  }
-  template <class T>
-    static T deSerialize(string s){
-      return static_cast<T>(s);
-    }
-  template <class T>
-  static int deSerialize(string s){
-    return stoi(s);
-  }
-};
 
 template <class C> class Singleton {
 private:
@@ -113,32 +80,32 @@ class BlockedExecManager : public ExecManager,
 private:
   typedef std::unique_ptr<Execution> ExecutionPtr;
   typedef std::shared_ptr<PreRunExecution> PreRunExecutionPtr;
-  std::queue<PreRunExecutionPtr> execution_unprocessed; // TODO: thread safe queue
+  std::queue<PreRunExecutionPtr>
+      execution_unprocessed; // TODO: thread safe queue
   std::unordered_map<int, ExecutionPtr> running_exectuion;
 
 public:
-  int submitExecution(const Place &place, const string &f_id, SerializedList &&s_l) {
+  int submitExecution(const Place &place, const string &f_id,
+                      BuffersPtr &&s_l) {
     PreRunExecutionPtr p{new PreRunExecution(place, f_id, move(s_l))};
     int id = p->id;
     execution_unprocessed.push(move(p));
     return id;
   }
-  void pickToRun(){
-  }
-  string waitFor(int id){ //TODO FAKE wait for
-    while(true){
-      if(execution_unprocessed.size()==0){
+  void pickToRun() {}
+  string waitFor(int id) { // TODO FAKE wait for
+    while (true) {
+      if (execution_unprocessed.size() == 0) {
         std::this_thread::sleep_for(chrono::seconds(2));
         continue;
-      }else{
+      } else {
         auto pre_e = move(execution_unprocessed.front());
         execution_unprocessed.pop();
         return (*pre_e->s_l)[0];
-        //TODO conver to running and add finised queue
+        // TODO conver to running and add finised queue
       }
     }
   }
-
 };
 
 // also doing serializtion
@@ -151,17 +118,15 @@ public:
   // blocked submit
   template <class Ret, class... ArgTypes>
   static int BlockedSubmit(Place &place, Ret(f)(ArgTypes...),
-                     ArgTypes... args) { // TODO args copied?
+                           ArgTypes... args) { // TODO args copied?
     const string f_id = function_id(f);
     // TODO: no serialization needed if run local
     // TODO: if local submit to local execution schedualler
-    auto s_l =
-        Serializer::serialize(args...);
+    auto s_l = Serializer::serializeList(args...);
     int id = BlockedExecManager::get()->submitExecution(place, f_id, move(s_l));
     return id;
   }
-  template <class Ret>
-  static Ret getReturnValue(int e_id){
+  template <class Ret> static Ret getReturnValue(int e_id) {
     string ret = BlockedExecManager::get()->waitFor(e_id);
     return Serializer::deSerialize<Ret>(ret);
   }
@@ -173,8 +138,8 @@ public:
     // TODO: no serialization needed if run local
     // TODO: if local submit to local execution schedualler
     auto s_l =
-        Serializer::serialize(args...); // TODO serialize in different thread
-    //Submit to current finish layer manager
+        Serializer::serializeList(args...); // TODO serialize in different thread
+    // Submit to current finish layer manager
   }
 };
 
@@ -188,14 +153,14 @@ class AsyncSubmitter : public Submitter {
 
 class BlockedSubmitter : public Submitter {
   Place place;
-  public:
+
+public:
   BlockedSubmitter() {}
   BlockedSubmitter(const Place &p) : place(p) {}
   template <class Ret, class... ArgTypes>
-  Ret operator()(Ret(f)(ArgTypes...), ArgTypes... args){
+  Ret operator()(Ret(f)(ArgTypes...), ArgTypes... args) {
     auto id = Coordinator::BlockedSubmit(place, f, args...);
     return Coordinator::getReturnValue<Ret>(id);
-
   }
 };
 
@@ -206,13 +171,12 @@ void init_statics() {
 
 _THALLIUM_END_NAMESPACE
 
-int functionfortest(int a, int b){
-  return a+ b;
-}
+int functionfortest(int a, int b) { return a + b; }
 
 int main(int argc, const char *argv[]) {
   thallium::BlockedSubmitter s{thallium::self};
   int ret = s(functionfortest, 123, 431);
+  std::cout << ret << std::endl;
 
   return 0;
 }

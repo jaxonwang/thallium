@@ -39,6 +39,7 @@ compile_commands.json
 
 CMakeCache.txt
 CMakeFiles/
+build/
 Makefile
 cmake_install.cmake
 thallium

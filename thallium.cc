@@ -148,7 +148,7 @@ class AsyncSubmitter : public Submitter {
   AsyncSubmitter() {}
   AsyncSubmitter(const Place &p) : place(p) {}
   template <class Ret, class... ArgTypes>
-  void operator()(Ret(f)(ArgTypes...), ArgTypes... args){};
+  void operator()(Ret(f)(ArgTypes...), ArgTypes... args){}
 };
 
 class BlockedSubmitter : public Submitter {

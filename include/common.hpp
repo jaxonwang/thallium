@@ -27,22 +27,23 @@ class format_error : public runtime_error {
 }  // namespace ti_exception
 
 inline void __raise_left_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'{\' in the {} pair: " + fmt);
+    throw ti_exception::format_error("Expecting \'{\' in the brace pair: " + fmt);
 }
 inline void __raise_right_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'}\' in the {} pair: " + fmt);
+    throw ti_exception::format_error("Expecting \'}\' in the brace pair: " + fmt);
 }
 
 template <class T>
-void __raise_too_many_args(T &t) {
+inline void __raise_too_many_args(T &t) {
     stringstream tss{"Too many argumetns given: "};
     tss << t;
     throw ti_exception::format_error(tss.str());
 }
 
-void _format(stringstream &ss, const string &fmt, unsigned long pos) {
+inline void _format(stringstream &ss, const string &fmt, unsigned long pos) {
     for (; pos < fmt.size(); pos++) {
         bool islast = (pos + 1 == fmt.size());
+        char current = fmt[pos];
         if (islast) {
             if (fmt[pos] == '{') {
                 __raise_right_brace_unmatch(fmt);
@@ -52,7 +53,6 @@ void _format(stringstream &ss, const string &fmt, unsigned long pos) {
         } else if (fmt[pos] == '{') {
             if (fmt[pos + 1] == '{') {
                 pos++;
-                ss << fmt[pos];
             } else if (fmt[pos + 1] == '}') {
                 throw ti_exception::format_error(
                     "Too many format positions '{}'" + fmt);
@@ -62,19 +62,17 @@ void _format(stringstream &ss, const string &fmt, unsigned long pos) {
         } else if (fmt[pos] == '}') {
             if (fmt[pos + 1] == '}') {
                 pos++;
-                ss << fmt[pos];
             } else {
                 __raise_left_brace_unmatch(fmt);
             }
-        } else {
-            ss << fmt[pos];
         }
+        ss <<current;
     }
 }
 
 template <class T, class = decltype(declval<ostream&>()<<declval<T>()), // ensure << op exist
          class... Args>
-void _format(stringstream &ss, const string &fmt, unsigned long pos, const T t,
+inline void _format(stringstream &ss, const string &fmt, unsigned long pos, const T t,
              const Args... args) {
     auto size = fmt.size();
     for (; pos < size; pos++) {
@@ -84,11 +82,11 @@ void _format(stringstream &ss, const string &fmt, unsigned long pos, const T t,
                 if (islast) {
                     __raise_right_brace_unmatch(fmt);
                 } else if (fmt[pos + 1] == '{') {
-                    pos++;
                     ss << fmt[pos];
-                } else if (fmt[pos + 1] == '}') {
                     pos++;
+                } else if (fmt[pos + 1] == '}') {
                     ss << t;
+                    pos+=2;
                     goto outloop;
                 } else {
                     __raise_right_brace_unmatch(fmt);
@@ -99,6 +97,7 @@ void _format(stringstream &ss, const string &fmt, unsigned long pos, const T t,
                     __raise_left_brace_unmatch(fmt);
                 } else if (fmt[pos + 1] == '}') {
                     ss << fmt[pos];
+                    pos++;
                 } else {
                     __raise_left_brace_unmatch(fmt);
                 }

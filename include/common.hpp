@@ -27,10 +27,12 @@ class format_error : public runtime_error {
 }  // namespace ti_exception
 
 inline void __raise_left_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'{\' in the brace pair: " + fmt);
+    throw ti_exception::format_error("Expecting \'{\' in the brace pair: " +
+                                     fmt);
 }
 inline void __raise_right_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'}\' in the brace pair: " + fmt);
+    throw ti_exception::format_error("Expecting \'}\' in the brace pair: " +
+                                     fmt);
 }
 
 template <class T>
@@ -66,36 +68,36 @@ inline void _format(stringstream &ss, const string &fmt, unsigned long pos) {
                 __raise_left_brace_unmatch(fmt);
             }
         }
-        ss <<current;
+        ss << current;
     }
 }
 
-template <class T, class = decltype(declval<ostream&>()<<declval<T>()), // ensure << op exist
-         class... Args>
-inline void _format(stringstream &ss, const string &fmt, unsigned long pos, const T t,
-             const Args... args) {
+template <class T,
+          class = decltype(declval<ostream &>()
+                           << declval<T>()),  // ensure << op exist
+          class... Args>
+inline void _format(stringstream &ss, const string &fmt, unsigned long pos,
+                    const T t, const Args... args) {
     auto size = fmt.size();
     for (; pos < size; pos++) {
         bool islast = (pos + 1 == size);
         switch (fmt[pos]) {
             case '{':
-                if (islast) {
-                    __raise_right_brace_unmatch(fmt);
-                } else if (fmt[pos + 1] == '{') {
-                    ss << fmt[pos];
-                    pos++;
-                } else if (fmt[pos + 1] == '}') {
-                    ss << t;
-                    pos+=2;
-                    goto outloop;
+                if (!islast) {
+                    if (fmt[pos + 1] == '{') {
+                        ss << fmt[pos];
+                        pos++;
+                    } else if (fmt[pos + 1] == '}') {
+                        ss << t;
+                        pos += 2;
+                        goto outloop;
+                    }
                 } else {
                     __raise_right_brace_unmatch(fmt);
                 }
                 break;
             case '}':
-                if (islast) {
-                    __raise_left_brace_unmatch(fmt);
-                } else if (fmt[pos + 1] == '}') {
+                if (!islast && fmt[pos + 1] == '}') {
                     ss << fmt[pos];
                     pos++;
                 } else {

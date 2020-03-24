@@ -30,6 +30,7 @@ template <class... ArgTypes> BuffersPtr serializeList(ArgTypes... args) {
 template <class T> T deSerialize(string s) { return static_cast<T>(s); }
 template <> int deSerialize<int>(string s) { return stoi(s); }
 template <> double deSerialize<double>(string s) { return stod(s); }
+template <> long double deSerialize<long double>(string s) { return stold(s); }
 template <> float deSerialize<float>(string s) { return stof(s); }
 } // namespace Serializer
 

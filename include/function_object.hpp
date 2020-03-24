@@ -60,17 +60,3 @@ private:
 };
 
 _THALLIUM_END_NAMESPACE
-
-#include <typeinfo>
-
-int main() {
-
-  auto s = thallium::FunctionSingnature<int, int, float, double>{};
-  auto bvs =
-      s.deSerializeArguments(std::vector<std::string>{"2", "3.14", "5.453"});
-  std::cout << bvs.size() << std::endl;
-  std::cout << boost::any_cast<int>(bvs[0]) << std::endl;
-  std::cout << boost::any_cast<float>(bvs[1]) << std::endl;
-  std::cout << boost::any_cast<double>(bvs[2]) << std::endl;
-  return 0;
-}

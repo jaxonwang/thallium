@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "catch2/catch.hpp"
+#include <catch2/catch.hpp>
 
 struct structtest {
     std::string value;

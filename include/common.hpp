@@ -10,6 +10,8 @@
 #include <string>
 #include <typeinfo>
 
+#include "exception.hpp"
+
 _THALLIUM_BEGIN_NAMESPACE
 
 using namespace std;
@@ -27,19 +29,19 @@ class format_error : public runtime_error {
 }  // namespace ti_exception
 
 inline void __raise_left_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'{\' in the brace pair: " +
-                                     fmt);
+    TI_RAISE(ti_exception::format_error("Expecting \'{\' in the brace pair: " +
+                                     fmt));
 }
 inline void __raise_right_brace_unmatch(const string &fmt) {
-    throw ti_exception::format_error("Expecting \'}\' in the brace pair: " +
-                                     fmt);
+    TI_RAISE(ti_exception::format_error("Expecting \'}\' in the brace pair: " +
+                                     fmt));
 }
 
 template <class T>
 inline void __raise_too_many_args(T &t) {
     stringstream tss{"Too many argumetns given: "};
     tss << t;
-    throw ti_exception::format_error(tss.str());
+    TI_RAISE(ti_exception::format_error(tss.str()));
 }
 
 inline void _format(stringstream &ss, const string &fmt, unsigned long pos) {
@@ -56,8 +58,8 @@ inline void _format(stringstream &ss, const string &fmt, unsigned long pos) {
             if (fmt[pos + 1] == '{') {
                 pos++;
             } else if (fmt[pos + 1] == '}') {
-                throw ti_exception::format_error(
-                    "Too many format positions '{}'" + fmt);
+                TI_RAISE(ti_exception::format_error(
+                    "Too many format positions '{}'" + fmt));
             } else {
                 __raise_right_brace_unmatch(fmt);
             }

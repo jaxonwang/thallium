@@ -1,0 +1,9 @@
+
+#ifndef _THALLIUM_BACKTRACE
+#define _THALLIUM_BACKTRACE
+
+#include "common.hpp"
+_THALLIUM_BEGIN_NAMESPACE
+
+_THALLIUM_END_NAMESPACE
+#endif

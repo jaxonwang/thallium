@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "exception.hpp"
 #include "serialize.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
@@ -174,12 +175,22 @@ void init_statics() {
 
 _THALLIUM_END_NAMESPACE
 
-int functionfortest(int a, int b) { return a + b; }
+// user privede ti_main as main entry
+// int ti_main(int argc, const char *argv[]) {
+//     do something
+//     return 0;
+// }
 
-int main(int argc, const char *argv[]) {
-    thallium::BlockedSubmitter s{thallium::self};
-    int ret = s(functionfortest, 123, 431);
-    std::cout << ret << std::endl;
+#define TI_MAIN()\
+int main(int argc, const char *argv[]) {\
+    thallium::init_statics();\
+    int ret;\
+    try {\
+        ret = ti_main(argc, argv);\
+    } catch (const std::exception &e) {\
+        thallium::ti_exception::handle_uncatched_and_abort(e);\
+    }\
+    \
+    return ret;                                                \
+    }
 
-    return 0;
-}

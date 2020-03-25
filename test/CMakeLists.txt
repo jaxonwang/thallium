@@ -26,10 +26,13 @@ file(GLOB i_test_src
     )
 add_executable(integration_test ${i_test_src})
 
+# using boost stactrace
 if(APPLE)
     add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
     elseif(UNIX AND NOT APPLE)
+    add_definitions(-DBOOST_STACKTRACE_USE_BACKTRACE)
     target_link_libraries(integration_test dl)
+    target_link_libraries(integration_test backtrace)
 endif()
 
 include("${catch_SOURCE_DIR}/contrib/Catch.cmake")

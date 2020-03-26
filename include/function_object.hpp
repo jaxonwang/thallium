@@ -1,4 +1,3 @@
-#include <boost/any.hpp>
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -14,32 +13,52 @@ _THALLIUM_BEGIN_NAMESPACE
 using namespace std;
 
 using Buffers = vector<string>;
-using BoxedValue = boost::any;
 
-template <class T>
-BoxedValue box(T &t) {
-    return boost::any{std::forward<T>(t)};
-}
-template <class T>
-BoxedValue box(T &&t) {
-    return boost::any{std::forward<T>(t)};
-}
-template <class T>
-T boxCast(const BoxedValue &t) {
-    return boost::any_cast<T>(t);
-}
-template <class T>
-T *boxCast(BoxedValue *t) {
-    return boost::any_cast<T>(t);
-}
-template <class T>
-const T *boxCast(const BoxedValue *t) {
-    return boost::any_cast<T>(t);
-}
-template <class T>
-T boxCast(BoxedValue &&t) {
-    return boost::any_cast<T>(t);
-}
+class BoxedValue{ //move value to stack TODO need optimization to reduce copy. Need to consider how the serialization is done
+    shared_ptr <void> v_ptr;
+    
+    protected:
+    BoxedValue() =delete;
+    // BoxedValue(const BoxedValue &b) =delete;
+
+    public:
+    BoxedValue(BoxedValue &&a){
+        v_ptr = move(a.v_ptr);
+    }
+    template<class T>
+    BoxedValue(T &t){
+        auto sp =  make_shared<T>();
+        *sp = t;
+        v_ptr = std::static_pointer_cast<void>(sp);
+    }
+    template<class T>
+    BoxedValue(const T &t){
+        auto sp =  make_shared<T>();
+        *sp = t;
+        v_ptr = std::static_pointer_cast<void>(sp);
+    }
+    template<class T>
+    BoxedValue(T &&t){
+        auto sp =  make_shared<T>();
+        *sp = move(t);
+        v_ptr = std::static_pointer_cast<void>(sp);
+    }
+
+    template<class T>
+    BoxedValue(unique_ptr<T> &&p){
+        shared_ptr<T> sp{move(p)};
+        v_ptr = std::static_pointer_cast<void>(sp);
+    }
+
+    template<class T>
+    BoxedValue(shared_ptr<T> &sp){
+        v_ptr = std::static_pointer_cast<void>(sp);
+    }
+    template<class T>
+    static shared_ptr<T> boxCast(BoxedValue &b){
+        return std::static_pointer_cast<T>(b.v_ptr);
+    }
+};
 
 namespace exception {
 class ParameterError : public std::range_error {
@@ -51,9 +70,11 @@ class ParameterError : public std::range_error {
 class FunctionObject {
    public:
     // virtual BoxedValue operator()(BoxedValue args...) =0;
-    virtual BoxedValue operator()(vector<BoxedValue> args) = 0;
+    virtual BoxedValue operator()(vector<BoxedValue> &args) = 0;
 
     virtual vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
+    protected:
+    virtual ~FunctionObject(){}
 };
 
 template <class Ret, class... ArgTypes>
@@ -101,8 +122,9 @@ class FunctionSingnature {
                 bvs.size(), 1 + index + sizeof...(ArgTs)));
             TI_RAISE(e);
         }
-        Arg1 *a1 = boxCast<Arg1>(&bvs[index]);
-        function<Ret(ArgTs...)> _f = [a1, &f](ArgTs... args) {
+        auto a1 = BoxedValue::boxCast<Arg1>(bvs[index]);
+
+        function<Ret(ArgTs...)> _f = [a1, f](ArgTs... args) {
             return f(*a1, args...);
         };
         return _bindArguments<index + 1, ArgTs...>(_f, bvs);
@@ -136,8 +158,9 @@ class FunctionObjectImpl : public FunctionObject {
         return FuncSignature::deSerializeArguments(bs);
     }
 
-    BoxedValue operator()(vector<BoxedValue> args) override {
-        return FuncSignature::bindArguments(f, args)();
+    BoxedValue operator()(vector<BoxedValue> &args) override {
+        auto f_bd = FuncSignature::bindArguments(f, args);
+        return f_bd();
     }
 };
 

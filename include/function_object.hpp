@@ -14,48 +14,50 @@ using namespace std;
 
 using Buffers = vector<string>;
 
-class BoxedValue{ //move value to stack TODO need optimization to reduce copy. Need to consider how the serialization is done
-    shared_ptr <void> v_ptr;
-    
-    protected:
-    BoxedValue() =delete;
-    // BoxedValue(const BoxedValue &b) =delete;
+class BoxedValue {  // move value to stack TODO need optimization to reduce
+                    // copy. Need to consider how the serialization is done
+                    // TODO test for all possible type
+    shared_ptr<void> v_ptr;
 
-    public:
-    BoxedValue(BoxedValue &&a){
-        v_ptr = move(a.v_ptr);
-    }
-    template<class T>
-    BoxedValue(T &t){
-        auto sp =  make_shared<T>();
-        *sp = t;
+   protected:
+    BoxedValue() = delete;
+
+   public:
+    BoxedValue(const BoxedValue &) = default;
+    BoxedValue(BoxedValue &&bv) = default;
+
+    template <class T,
+              class = typename enable_if<!is_pointer<T>::value &&
+                                         is_copy_constructible<T>::value>::type>
+    BoxedValue(
+        const T &t) {  // copy to heap , this is very dangerous to match T ...
+        auto sp = make_shared<T>(t);
         v_ptr = std::static_pointer_cast<void>(sp);
     }
-    template<class T>
-    BoxedValue(const T &t){
-        auto sp =  make_shared<T>();
-        *sp = t;
-        v_ptr = std::static_pointer_cast<void>(sp);
-    }
-    template<class T>
-    BoxedValue(T &&t){
-        auto sp =  make_shared<T>();
+    template <
+        class T,
+        class = typename enable_if<!is_lvalue_reference<T>::value>::
+            type>  // must specify or it will be forwarding reference
+                   // why is !is_lvalue_reference, see
+                   // https://stackoverflow.com/questions/53758796/why-does-stdis-rvalue-reference-not-do-what-it-is-advertised-to-do
+    BoxedValue(T &&t) {
+        auto sp = make_shared<T>();
         *sp = move(t);
         v_ptr = std::static_pointer_cast<void>(sp);
     }
 
-    template<class T>
-    BoxedValue(unique_ptr<T> &&p){
+    template <class T>
+    BoxedValue(unique_ptr<T> &&p) {
         shared_ptr<T> sp{move(p)};
         v_ptr = std::static_pointer_cast<void>(sp);
     }
 
-    template<class T>
-    BoxedValue(shared_ptr<T> &sp){
+    template <class T>
+    BoxedValue(shared_ptr<T> &sp) {
         v_ptr = std::static_pointer_cast<void>(sp);
     }
-    template<class T>
-    static shared_ptr<T> boxCast(BoxedValue &b){
+    template <class T>
+    static shared_ptr<T> boxCast(BoxedValue &b) {
         return std::static_pointer_cast<T>(b.v_ptr);
     }
 };
@@ -73,8 +75,9 @@ class FunctionObject {
     virtual BoxedValue operator()(vector<BoxedValue> &args) = 0;
 
     virtual vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
-    protected:
-    virtual ~FunctionObject(){}
+
+   protected:
+    virtual ~FunctionObject() {}
 };
 
 template <class Ret, class... ArgTypes>

@@ -17,6 +17,7 @@ using Buffers = vector<string>;
 class BoxedValue {  // move value to stack TODO need optimization to reduce
                     // copy. Need to consider how the serialization is done
                     // TODO test for all possible type
+                    // TODO type consistancy check
     shared_ptr<void> v_ptr;
 
    protected:
@@ -29,7 +30,7 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
     template <class T,
               class = typename enable_if<!is_pointer<T>::value &&
                                          is_copy_constructible<T>::value>::type>
-    BoxedValue(
+    explicit BoxedValue(
         const T &t) {  // copy to heap , this is very dangerous to match T ...
         auto sp = make_shared<T>(t);
         v_ptr = std::static_pointer_cast<void>(sp);
@@ -41,8 +42,7 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
                    // why is !is_lvalue_reference, see
                    // https://stackoverflow.com/questions/53758796/why-does-stdis-rvalue-reference-not-do-what-it-is-advertised-to-do
     BoxedValue(T &&t) {
-        auto sp = make_shared<T>();
-        *sp = move(t);
+        auto sp = make_shared<T>(forward<T>(t));
         v_ptr = std::static_pointer_cast<void>(sp);
     }
 
@@ -69,7 +69,7 @@ class ParameterError : public std::range_error {
 };
 }  // namespace exception
 
-class FunctionObject {
+class FunctionObjectBase {
    public:
     // virtual BoxedValue operator()(BoxedValue args...) =0;
     virtual BoxedValue operator()(vector<BoxedValue> &args) = 0;
@@ -77,7 +77,7 @@ class FunctionObject {
     virtual vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
 
    protected:
-    virtual ~FunctionObject() {}
+    virtual ~FunctionObjectBase() {}
 };
 
 template <class Ret, class... ArgTypes>
@@ -95,7 +95,7 @@ class FunctionSingnature {
     }
 
    private:
-    template <int index, class Arg1, class... ArgTs>
+    template <int index, class Arg1, class... ArgTs> //TODO: by forwording?
     static void _deSerializeArguments(vector<BoxedValue> &bvs,
                                       const Buffers &buffers) {
         if (index + 1 > buffers.size()) {
@@ -147,15 +147,15 @@ class FunctionSingnature {
 };
 
 template <class Ret, class... ArgTypes>
-class FunctionObjectImpl : public FunctionObject {
+class FunctionObjectImpl : public FunctionObjectBase {
     using FuncSignature = FunctionSingnature<Ret, ArgTypes...>;
     function<Ret(ArgTypes...)> f;
 
    public:
-    FunctionObjectImpl(Ret(func)(ArgTypes...)) : FunctionObject(), f(func) {}
+    FunctionObjectImpl(Ret(func)(ArgTypes...)) : FunctionObjectBase(), f(func) {}
 
     FunctionObjectImpl(const function<Ret(ArgTypes...)> &func)
-        : FunctionObject(), f(func) {}
+        : FunctionObjectBase(), f(func) {}
 
     vector<BoxedValue> deSerializeArguments(const Buffers &bs) override {
         return FuncSignature::deSerializeArguments(bs);
@@ -177,5 +177,13 @@ FunctionObjectImpl<Ret, ArgTypes...> make_function_object(
     const function<Ret(ArgTypes...)> func) {
     return FunctionObjectImpl<Ret, ArgTypes...>(func);
 }
+
+template <class Ret, class... ArgTypes>
+class VoidFunctionObject: public FunctionObjectImpl<Ret, ArgTypes...>{
+    static_assert(is_same<Ret, void>::value, "Void function's return type must be void!");
+};
+
+template <class Ret, class... ArgTypes>
+using FunctionObject = FunctionObjectImpl<Ret, ArgTypes...>;
 
 _THALLIUM_END_NAMESPACE

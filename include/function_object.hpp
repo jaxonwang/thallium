@@ -2,11 +2,14 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common.hpp"
 #include "exception.hpp"
 #include "serialize.hpp"
+#include "utils.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
@@ -95,7 +98,7 @@ class FunctionSingnature {
     }
 
    private:
-    template <int index, class Arg1, class... ArgTs> //TODO: by forwording?
+    template <int index, class Arg1, class... ArgTs>  // TODO: by forwording?
     static void _deSerializeArguments(vector<BoxedValue> &bvs,
                                       const Buffers &buffers) {
         if (index + 1 > buffers.size()) {
@@ -152,7 +155,8 @@ class FunctionObjectImpl : public FunctionObjectBase {
     function<Ret(ArgTypes...)> f;
 
    public:
-    FunctionObjectImpl(Ret(func)(ArgTypes...)) : FunctionObjectBase(), f(func) {}
+    FunctionObjectImpl(Ret(func)(ArgTypes...))
+        : FunctionObjectBase(), f(func) {}
 
     FunctionObjectImpl(const function<Ret(ArgTypes...)> &func)
         : FunctionObjectBase(), f(func) {}
@@ -168,22 +172,87 @@ class FunctionObjectImpl : public FunctionObjectBase {
 };
 
 template <class Ret, class... ArgTypes>
+class VoidFunctionObject : public FunctionObjectImpl<Ret, ArgTypes...> {
+    static_assert(is_same<Ret, void>::value,
+                  "Void function's return type must be void!");
+};
+
+template <class Ret, class... ArgTypes>
+using FunctionObject = FunctionObjectImpl<Ret, ArgTypes...>;
+
+template <class Ret, class... ArgTypes>
 FunctionObjectImpl<Ret, ArgTypes...> make_function_object(
     Ret(func)(ArgTypes...)) {
     return FunctionObjectImpl<Ret, ArgTypes...>(func);
 }
 template <class Ret, class... ArgTypes>
 FunctionObjectImpl<Ret, ArgTypes...> make_function_object(
-    const function<Ret(ArgTypes...)> func) {
+    const function<Ret(ArgTypes...)> &func) {
     return FunctionObjectImpl<Ret, ArgTypes...>(func);
 }
+template <class... ArgTypes>
+FunctionObjectImpl<void, ArgTypes...> make_void_function_object(
+    void(func)(ArgTypes...)) {
+    return VoidFunctionObject<void, ArgTypes...>(func);
+}
+template <class... ArgTypes>
+FunctionObjectImpl<void, ArgTypes...> make_void_function_object(
+    const function<void(ArgTypes...)> &func) {
+    return VoidFunctionObject<void, ArgTypes...>(func);
+}
 
-template <class Ret, class... ArgTypes>
-class VoidFunctionObject: public FunctionObjectImpl<Ret, ArgTypes...>{
-    static_assert(is_same<Ret, void>::value, "Void function's return type must be void!");
+class FuncManager : public Singleton<FuncManager> {
+    friend class Singleton<FuncManager>;
+    unordered_map<string, shared_ptr<FunctionObjectBase>> f_table;
+
+   public:
+    FuncManager() {}
+
+    void addFunc(const string &f_id,
+                 const shared_ptr<FunctionObjectBase> &f_ptr) {
+        f_table.insert({f_id, f_ptr});
+    }
+
+    shared_ptr<FunctionObjectBase> getFuncObj(const string &f_id) {
+        return f_table[f_id];
+    }
 };
 
 template <class Ret, class... ArgTypes>
-using FunctionObject = FunctionObjectImpl<Ret, ArgTypes...>;
+void register_func(Ret(func)(
+    ArgTypes...)) {  // redundant codes, refectoring after future changes.
+    auto _p = make_shared<FunctionObject>(make_function_object(func));
+    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto f_id = function_id(func);
+    FuncManager::get()->addFunc(f_id, p);
+}
+
+template <class Ret, class... ArgTypes>
+void register_func(function<Ret(ArgTypes...)> &func) {
+    auto _p = make_shared<FunctionObject>(func);
+    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto f_id = function_id(func);
+    FuncManager::get()->addFunc(f_id, p);
+}
+
+template <class... ArgTypes>
+void register_void_func(void(func)(ArgTypes...)) {
+    auto _p = make_shared<VoidFunctionObject>(func);
+    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto f_id = function_id(func);
+    FuncManager::get()->addFunc(f_id, p);
+}
+
+template <class... ArgTypes>
+void register_void_func(function<void(ArgTypes...)> &func) {
+    auto _p = make_shared<VoidFunctionObject>(&func);
+    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto f_id = function_id(func);
+    FuncManager::get()->addFunc(f_id, p);
+}
+
+shared_ptr<FunctionObjectBase> getFunctionObject(const string &f_id){
+  return FuncManager::get()->getFuncObj(f_id);
+}
 
 _THALLIUM_END_NAMESPACE

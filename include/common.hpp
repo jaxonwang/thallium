@@ -16,11 +16,6 @@ _THALLIUM_BEGIN_NAMESPACE
 
 using namespace std;
 
-template <class Rt, class... Argtypes>
-const string function_id(Rt(f)(Argtypes...)) {
-    return typeid(f).name();
-}
-
 namespace ti_exception {
 class format_error : public runtime_error {
    public:

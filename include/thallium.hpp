@@ -10,6 +10,7 @@
 #include "common.hpp"
 #include "exception.hpp"
 #include "serialize.hpp"
+#include "utils.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 using namespace std;
@@ -57,22 +58,6 @@ class AsyncLocalExecution : public RunningExecution {};
 class ThreadExecutionHandler {};
 
 class Submitter {};
-
-template <class C>
-class Singleton {
-   private:
-    static C *_instance;
-
-   public:
-    static void init() { Singleton::_instance = new C{}; }
-    static C *get() {
-        if (!_instance)  // TODO: thread safe or init manually
-            init();
-        return _instance;
-    }
-};
-template <class C>
-C *Singleton<C>::_instance = nullptr;
 
 class ExecManager {};
 class AsyncExecManager : public ExecManager {};  // TODO manager for finish

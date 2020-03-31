@@ -1,4 +1,5 @@
 #include "function_object.hpp"
+#include "utils.hpp"
 
 #include <catch2/catch.hpp>
 #include <memory>
@@ -67,4 +68,24 @@ TEST_CASE("Test Function Object") {
     };
     auto sp = make_shared<testsp>();
     BoxedValue tmp{sp};
+}
+
+TEST_CASE("Test Function Manager") {
+    auto f1 = [](int a, int b, int d, std::string c, int e) {
+        return a + b + d + e + c.size();
+    };
+    std::function<int(int, int, int, std::string, int)> f1_ = f1;
+    register_func(f1_);
+    auto fobj = thallium::getFunctionObject(function_id(f1_));
+
+    vector<BoxedValue> bvs;
+    int a = 1, b = 1, d = 3, e = 4;
+    string c = "fdas";
+    bvs.push_back(BoxedValue(a));
+    bvs.push_back(BoxedValue(move(b)));
+    bvs.push_back(BoxedValue(d));
+    bvs.push_back(BoxedValue(c));
+    bvs.push_back(BoxedValue(e));
+    BoxedValue bv = (*fobj)(bvs);
+    REQUIRE(*BoxedValue::boxCast<int>(bv) == 13);
 }

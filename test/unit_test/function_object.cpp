@@ -70,6 +70,10 @@ TEST_CASE("Test Function Object") {
     BoxedValue tmp{sp};
 }
 
+int func_test(int a, int b, int d, std::string c, int e){
+  return a*b*d*c.size()*e;
+}
+
 TEST_CASE("Test Function Manager") {
     auto f1 = [](int a, int b, int d, std::string c, int e) {
         return a + b + d + e + c.size();
@@ -88,4 +92,11 @@ TEST_CASE("Test Function Manager") {
     bvs.push_back(BoxedValue(e));
     BoxedValue bv = (*fobj)(bvs);
     REQUIRE(*BoxedValue::boxCast<int>(bv) == 13);
+
+    register_func(func_test);
+    auto fobj2 = thallium::getFunctionObject(function_id(func_test));
+    BoxedValue bv2 = (*fobj2)(bvs);
+    REQUIRE(*BoxedValue::boxCast<int>(bv2) == 48);
+    REQUIRE_THROWS_AS(register_func(func_test), std::logic_error);
+
 }

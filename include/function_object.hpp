@@ -210,7 +210,9 @@ class FuncManager : public Singleton<FuncManager> {
 
     void addFunc(const string &f_id,
                  const shared_ptr<FunctionObjectBase> &f_ptr) {
-        f_table.insert({f_id, f_ptr});
+      if(f_table.count(f_id) != 0)
+        TI_RAISE(std::logic_error(thallium::format("The function: {} has been registered!", f_id)));
+      f_table.insert({f_id, f_ptr});
     }
 
     shared_ptr<FunctionObjectBase> getFuncObj(const string &f_id) {
@@ -221,7 +223,7 @@ class FuncManager : public Singleton<FuncManager> {
 template <class Ret, class... ArgTypes>
 void register_func(Ret(func)(
     ArgTypes...)) {  // redundant codes, refectoring after future changes.
-    auto _p = make_shared<FunctionObject>(make_function_object(func));
+    auto _p = make_shared<FunctionObject<Ret,ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
@@ -229,7 +231,7 @@ void register_func(Ret(func)(
 
 template <class Ret, class... ArgTypes>
 void register_func(function<Ret(ArgTypes...)> &func) {
-    auto _p = make_shared<FunctionObject>(func);
+    auto _p = make_shared<FunctionObject<Ret,ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
@@ -237,7 +239,7 @@ void register_func(function<Ret(ArgTypes...)> &func) {
 
 template <class... ArgTypes>
 void register_void_func(void(func)(ArgTypes...)) {
-    auto _p = make_shared<VoidFunctionObject>(func);
+    auto _p = make_shared<VoidFunctionObject<ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
@@ -245,7 +247,7 @@ void register_void_func(void(func)(ArgTypes...)) {
 
 template <class... ArgTypes>
 void register_void_func(function<void(ArgTypes...)> &func) {
-    auto _p = make_shared<VoidFunctionObject>(&func);
+    auto _p = make_shared<VoidFunctionObject<ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);

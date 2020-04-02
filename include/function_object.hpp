@@ -1,3 +1,6 @@
+#ifndef _THALLIUM_FUNCOBJ_HPP
+#define _THALLIUM_FUNCOBJ_HPP
+
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -258,3 +261,5 @@ shared_ptr<FunctionObjectBase> getFunctionObject(const string &f_id){
 }
 
 _THALLIUM_END_NAMESPACE
+
+#endif

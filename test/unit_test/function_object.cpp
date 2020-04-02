@@ -1,8 +1,10 @@
 #include "function_object.hpp"
-#include "utils.hpp"
 
 #include <catch2/catch.hpp>
 #include <memory>
+
+#include "thallium.hpp"
+#include "utils.hpp"
 
 using namespace thallium;
 
@@ -63,15 +65,15 @@ TEST_CASE("Test Function Object") {
     unique_ptr<int> p{new int[10]{}};
     BoxedValue ptr{move(p)};
 
-    struct testsp{
+    struct testsp {
         char load[100];
     };
     auto sp = make_shared<testsp>();
     BoxedValue tmp{sp};
 }
 
-int func_test(int a, int b, int d, std::string c, int e){
-  return a*b*d*c.size()*e;
+int func_test(int a, int b, int d, std::string c, int e) {
+    return a * b * d * c.size() * e;
 }
 
 TEST_CASE("Test Function Manager") {
@@ -98,5 +100,21 @@ TEST_CASE("Test Function Manager") {
     BoxedValue bv2 = (*fobj2)(bvs);
     REQUIRE(*BoxedValue::boxCast<int>(bv2) == 48);
     REQUIRE_THROWS_AS(register_func(func_test), std::logic_error);
+}
 
+int funtest(int a) { return a + 1; }
+
+TEST_CASE("Test Finish Suger") {
+    auto bs_ptr = BuffersPtr{new Buffers{"123", "321", "1234567"}};
+    for (FinishSugar i{}; i.once; i.once = false) {
+        AsyncExecManager::get()->submitExecution(
+            this_host, function_id(funtest), move(bs_ptr));
+        AsyncExecManager::get()->submitExecution(
+            this_host, function_id(funtest), move(bs_ptr));
+        AsyncExecManager::get()->submitExecution(
+            this_host, function_id(funtest), move(bs_ptr));
+    }
+    REQUIRE_THROWS_AS(AsyncExecManager::get()->submitExecution(
+                          this_host, function_id(funtest), move(bs_ptr)),
+                      std::logic_error);
 }

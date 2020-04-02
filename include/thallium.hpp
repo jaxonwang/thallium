@@ -1,3 +1,5 @@
+#ifndef _THALLIUM_HEADER
+#define _THALLIUM_HEADER
 #include <chrono>
 #include <iostream>
 #include <list>
@@ -25,7 +27,7 @@ struct finish {
 
 class Place {};  // TODO: finish here
 
-static Place self{};
+static Place this_host{};
 
 class Execution {           // TODO: state machine might be better
     static int current_id;  // TODO: thread safe
@@ -78,9 +80,10 @@ class FinishMonitor {
         }
         exes.insert({e_id, move(e_ptr)});
     }
-    //TODO add remove execution
-    void wait(int) {
+    //TODO add execution
+    void wait(int id) {
         // wait for the end of execution
+        cout << "wait for exe: " << id <<endl;
     }
 };
 
@@ -114,7 +117,8 @@ class FinishStack : public Singleton<FinishStack> {
 
 class FinishSugar {
    public:
-    FinishSugar() { FinishStack::get()->newFinish(); }
+    bool once;
+    FinishSugar():once(true) { FinishStack::get()->newFinish(); }
     ~FinishSugar() { FinishStack::get()->endFinish(); }
 };
 
@@ -123,7 +127,7 @@ class ThreadExecutionHandler {};
 class Submitter {};
 
 class ExecManager {};
-class AsyncExecManager : public ExecManager, Singleton<AsyncExecManager> {
+class AsyncExecManager : public ExecManager, public Singleton<AsyncExecManager> {
     friend class Singleton<AsyncExecManager>;
 
    public:
@@ -256,3 +260,5 @@ _THALLIUM_END_NAMESPACE
                                                                    \
         return ret;                                                \
     }
+
+#endif

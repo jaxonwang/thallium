@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <queue>
 #include <string>
@@ -26,7 +27,7 @@ class Place {};  // TODO: finish here
 
 static Place self{};
 
-class Execution {
+class Execution {           // TODO: state machine might be better
     static int current_id;  // TODO: thread safe
    public:
     const int id;
@@ -55,12 +56,89 @@ class AsyncRemoteExecution : public RunningExecution {};
 
 class AsyncLocalExecution : public RunningExecution {};
 
+class FinishStack;
+class FinishMonitor {
+    friend class FinishStack;
+    unordered_map<int, unique_ptr<Execution>> exes;  // TODO thread safe
+   public:
+    FinishMonitor() {}
+    void waitAll() {
+        for (auto &x : exes) {
+            wait(x.first);
+        }
+    }
+    void addExecution(unique_ptr<Execution> &&e_ptr) {
+        auto e_id = e_ptr->id;
+        if (exes.count(e_id) != 0) {
+            auto e = std::logic_error(
+                thallium::format("The execution number {} exist in current "
+                                 "finish. Should not reach here!",
+                                 e_id));
+            TI_RAISE(e);
+        }
+        exes.insert({e_id, move(e_ptr)});
+    }
+    //TODO add remove execution
+    void wait(int) {
+        // wait for the end of execution
+    }
+};
+
+class FinishStack : public Singleton<FinishStack> {
+    friend class Singleton<FinishStack>;
+    list<unique_ptr<FinishMonitor>> f_stack;  // TODO thread safe
+   public:
+    void push(unique_ptr<FinishMonitor> &&fm_ptr) {
+        f_stack.push_back(move(fm_ptr));
+    }
+    void delete_top() { f_stack.pop_back(); }
+    unique_ptr<FinishMonitor> &get_top() {
+        if (f_stack.empty()) {
+            auto e = std::logic_error(
+                "There is no finish in finish stack. Should not reach here!");
+            TI_RAISE(e);
+        }
+        return f_stack.back();
+    }
+    void newFinish() { push(unique_ptr<FinishMonitor>{new FinishMonitor{}}); }
+    void endFinish() {
+        get_top()->waitAll();
+        delete_top();
+    }
+    void start() { newFinish(); }
+    void end() { endFinish(); }
+    void addExecutionToCurrentFinish(unique_ptr<Execution> &&e_ptr) {
+        get_top()->addExecution(move(e_ptr));
+    }
+};
+
+class FinishSugar {
+   public:
+    FinishSugar() { FinishStack::get()->newFinish(); }
+    ~FinishSugar() { FinishStack::get()->endFinish(); }
+};
+
 class ThreadExecutionHandler {};
 
 class Submitter {};
 
 class ExecManager {};
-class AsyncExecManager : public ExecManager {};  // TODO manager for finish
+class AsyncExecManager : public ExecManager, Singleton<AsyncExecManager> {
+    friend class Singleton<AsyncExecManager>;
+
+   public:
+    int submitExecution(const Place &place, const string &f_id,
+                        BuffersPtr &&s_l) {
+        unique_ptr<PreRunExecution> p{
+            new PreRunExecution(place, f_id, move(s_l))};
+        // TODO turn prerun into running: release the buffers' mem
+        // TODO submit exe to run
+        int id = p->id;
+        FinishStack::get()->addExecutionToCurrentFinish(move(p));
+        return id;
+    }
+};
+
 class BlockedExecManager : public ExecManager,
                            public Singleton<BlockedExecManager> {  // singleton
     friend class Singleton<BlockedExecManager>;
@@ -166,16 +244,15 @@ _THALLIUM_END_NAMESPACE
 //     return 0;
 // }
 
-#define TI_MAIN()\
-int main(int argc, const char *argv[]) {\
-    thallium::init_statics();\
-    int ret;\
-    try {\
-        ret = ti_main(argc, argv);\
-    } catch (const std::exception &e) {\
-        thallium::ti_exception::handle_uncatched_and_abort(e);\
-    }\
-    \
-    return ret;                                                \
+#define TI_MAIN()                                                  \
+    int main(int argc, const char *argv[]) {                       \
+        thallium::init_statics();                                  \
+        int ret;                                                   \
+        try {                                                      \
+            ret = ti_main(argc, argv);                             \
+        } catch (const std::exception &e) {                        \
+            thallium::ti_exception::handle_uncatched_and_abort(e); \
+        }                                                          \
+                                                                   \
+        return ret;                                                \
     }
-

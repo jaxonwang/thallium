@@ -8,6 +8,7 @@
 #include "common.hpp"
 _THALLIUM_BEGIN_NAMESPACE
 
+typedef string Buffer;
 using Buffers = vector<string>;
 using BuffersPtr = unique_ptr<Buffers>;
 
@@ -24,7 +25,7 @@ template <class T> string serialize(T t) {
   return my_serialized_method(t); // TODO
 }
 
-template <class... ArgTypes> BuffersPtr serializeList(ArgTypes... args) {
+template <class... ArgTypes> BuffersPtr serializeList(const ArgTypes&... args) {
   return BuffersPtr{new Buffers{my_serialized_method(args)...}};
 }
 template <class T> T deSerialize(string s) { return static_cast<T>(s); }

@@ -124,7 +124,6 @@ class FinishSugar {
 
 class ThreadExecutionHandler {};
 
-class Submitter {};
 
 class ExecManager {};
 class AsyncExecManager : public ExecManager, public Singleton<AsyncExecManager> {
@@ -163,7 +162,7 @@ class BlockedExecManager : public ExecManager,
         return id;
     }
     void pickToRun() {}
-    string waitFor(int id) {  // TODO FAKE wait for
+    Buffer wait(int id) {  // TODO FAKE wait for
         while (true) {
             if (execution_unprocessed.size() == 0) {
                 std::this_thread::sleep_for(chrono::seconds(2));
@@ -178,41 +177,58 @@ class BlockedExecManager : public ExecManager,
     }
 };
 
+// direct call from user, encapsulate the exe submission
 // also doing serializtion
 class Coordinator {
    protected:
     Coordinator(){};
 
    public:
+    template <class MngT, class Ret, class... ArgTypes>
+    static int RemoteSubmit(Place &place, Ret(f)(ArgTypes...),
+                             const ArgTypes& ... args) {  // TODO args copied? now let forbid the &&
+        const string f_id = function_id(f);
+        auto s_l = Serializer::serializeList(args...); 
+        int id =
+            MngT::get()->submitExecution(place, f_id, move(s_l));
+        return id;
+    }
     // blocked submit
     template <class Ret, class... ArgTypes>
     static int BlockedSubmit(Place &place, Ret(f)(ArgTypes...),
-                             ArgTypes... args) {  // TODO args copied?
-        const string f_id = function_id(f);
+                             const ArgTypes& ... args) {  // TODO args copied? now let forbid the &&
         // TODO: no serialization needed if run local
         // TODO: if local submit to local execution schedualler
-        auto s_l = Serializer::serializeList(args...);
-        int id =
-            BlockedExecManager::get()->submitExecution(place, f_id, move(s_l));
+        int id;
+        if(false) { //if islocal
+          
+        }else{
+        //Serialization in Blocked submit can be blocked
+          id = RemoteSubmit<BlockedExecManager>(place, f, args...);
+        }
         return id;
     }
     template <class Ret>
-    static Ret getReturnValue(int e_id) {
-        string ret = BlockedExecManager::get()->waitFor(e_id);
+    static Ret getReturnValue(const int e_id) {
+        Buffer ret = BlockedExecManager::get()->wait(e_id);
         return Serializer::deSerialize<Ret>(ret);
     }
+
     // unblocked submit
     template <class Ret, class... ArgTypes>
     static void Submit(Place &place, Ret(f)(ArgTypes...),
-                       ArgTypes... args) {  // TODO args copied?
-        std::string f_id = function_id(f);
+                       const ArgTypes&... args) {  // TODO args copied?
         // TODO: no serialization needed if run local
         // TODO: if local submit to local execution schedualler
-        auto s_l = Serializer::serializeList(
-            args...);  // TODO serialize in different thread
-                       // Submit to current finish layer manager
+        if(false){ //if is local
+        }else{
+            // TODO: new tread and to below
+            RemoteSubmit<AsyncExecManager>(place, f, args...);
+        }
     }
 };
+
+class Submitter {};
 
 class AsyncSubmitter : public Submitter {
     Place place;

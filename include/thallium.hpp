@@ -69,20 +69,14 @@ class ExecutionHub : public Singleton<ExecutionHub> {
         unique_ptr<Execution> p{new Execution(place, f_id, move(s_l))};
         auto id = p->id;
         all_exes.insert({id, move(p)});
+        //TODO add to pending
         return id;
     }
 
     Buffer wait(Execution::ExeId id) {  // TODO FAKE wait for
-        while (true) {
-            if (pending_exes.size() == 0) {
-                std::this_thread::sleep_for(chrono::seconds(2));
-                continue;
-            } else {
-                auto &pre_e = all_exes[id];
-                // TODO relase the execution object if called
-                return Buffer{};
-            }
-        }
+        auto &pre_e = all_exes[id];
+        // TODO relase the execution object if called
+        return Buffer{};
     }
 };
 

@@ -29,68 +29,92 @@ class Place {};  // TODO: finish here
 
 static Place this_host{};
 
-class Execution {           // TODO: state machine might be better
-    static int current_id;  // TODO: thread safe
-   public:
-    const int id;
+enum class ExeState { pre_run, scheduled, running, collecting, finished };
+
+class ExecutionHub;
+class Execution {  // TODO: state machine might be better
+    friend class ExecutionHub;
+
+  public:
+    typedef int ExeId;
+    static void init_statics() { current_id = 0; }
+
+  protected:
+    const ExeId id;
     const string f_id;
     const Place place;
-    static void init_statics() { current_id = 0; }
-    Execution(const Place &place, const string &f_id)
-        : id(current_id++), f_id(f_id), place(place) {}
-    Execution() = delete;
-};
-int Execution::current_id;
-
-class PreRunExecution : public Execution {
-   public:
     const BuffersPtr s_l;
-    PreRunExecution(const Place &place, const string &f_id, BuffersPtr &&s_l)
-        : Execution(place, f_id), s_l(move(s_l)) {}
+    ExeState state;
+    Execution(const Place &place, const string &f_id, BuffersPtr &&s_l)
+        : id(current_id++),
+          f_id(f_id),
+          place(place),
+          s_l(move(s_l)),
+          state{ExeState::pre_run} {}
+    Execution() = delete;
+    static ExeId current_id;  // TODO: thread safe mark it atomic?
+};
+Execution::ExeId Execution::current_id;
+
+class ExecutionHub : public Singleton<ExecutionHub> {
+    friend class Singleton<ExecutionHub>;
+    typedef std::unique_ptr<Execution> ExecutionPtr;
+
+  private:
+    std::unordered_map<Execution::ExeId, ExecutionPtr> all_exes;
+    std::queue<Execution::ExeId> pending_exes;  // TODO: thread safe queue
+  public:
+    Execution::ExeId newExecution(const Place &place, const string &f_id,
+                                  BuffersPtr &&s_l) {
+        unique_ptr<Execution> p{new Execution(place, f_id, move(s_l))};
+        auto id = p->id;
+        all_exes.insert({id, move(p)});
+        return id;
+    }
+
+    Buffer wait(Execution::ExeId id) {  // TODO FAKE wait for
+        while (true) {
+            if (pending_exes.size() == 0) {
+                std::this_thread::sleep_for(chrono::seconds(2));
+                continue;
+            } else {
+                auto &pre_e = all_exes[id];
+                // TODO relase the execution object if called
+                return Buffer{};
+            }
+        }
+    }
 };
 
-class RunningExecution : public Execution {
-   public:
-    RunningExecution();
+// factory method
+Execution::ExeId ExecutionFactory(const Place &place, const string &f_id,
+                                  BuffersPtr &&s_l) {
+    return ExecutionHub::get()->newExecution(place, f_id, move(s_l));
+}
+
+class ExecutionWaitor {  // wait interface
+  public:
+    Buffer wait(Execution::ExeId id) { return ExecutionHub::get()->wait(id); }
 };
-
-class AsyncRemoteExecution : public RunningExecution {};
-
-class AsyncLocalExecution : public RunningExecution {};
 
 class FinishStack;
-class FinishMonitor {
+class FinishMonitor : public ExecutionWaitor {
     friend class FinishStack;
-    unordered_map<int, unique_ptr<Execution>> exes;  // TODO thread safe
-   public:
+    vector<Execution::ExeId> exes;  // TODO thread safe
+  public:
     FinishMonitor() {}
     void waitAll() {
         for (auto &x : exes) {
-            wait(x.first);
+            wait(x);
         }
     }
-    void addExecution(unique_ptr<Execution> &&e_ptr) {
-        auto e_id = e_ptr->id;
-        if (exes.count(e_id) != 0) {
-            auto e = std::logic_error(
-                thallium::format("The execution number {} exist in current "
-                                 "finish. Should not reach here!",
-                                 e_id));
-            TI_RAISE(e);
-        }
-        exes.insert({e_id, move(e_ptr)});
-    }
-    //TODO add execution
-    void wait(int id) {
-        // wait for the end of execution
-        cout << "wait for exe: " << id <<endl;
-    }
+    void addExecution(Execution::ExeId &id) { exes.push_back(id); }
 };
 
 class FinishStack : public Singleton<FinishStack> {
     friend class Singleton<FinishStack>;
     list<unique_ptr<FinishMonitor>> f_stack;  // TODO thread safe
-   public:
+  public:
     void push(unique_ptr<FinishMonitor> &&fm_ptr) {
         f_stack.push_back(move(fm_ptr));
     }
@@ -110,106 +134,84 @@ class FinishStack : public Singleton<FinishStack> {
     }
     void start() { newFinish(); }
     void end() { endFinish(); }
-    void addExecutionToCurrentFinish(unique_ptr<Execution> &&e_ptr) {
-        get_top()->addExecution(move(e_ptr));
+    void addExecutionToCurrentFinish(Execution::ExeId &id) {
+        get_top()->addExecution(id);
     }
 };
 
 class FinishSugar {
-   public:
+  public:
     bool once;
-    FinishSugar():once(true) { FinishStack::get()->newFinish(); }
+    FinishSugar() : once(true) { FinishStack::get()->newFinish(); }
     ~FinishSugar() { FinishStack::get()->endFinish(); }
 };
 
 class ThreadExecutionHandler {};
 
-
 class ExecManager {};
-class AsyncExecManager : public ExecManager, public Singleton<AsyncExecManager> {
+class AsyncExecManager : public ExecManager,
+                         public Singleton<AsyncExecManager> {
     friend class Singleton<AsyncExecManager>;
 
-   public:
-    int submitExecution(const Place &place, const string &f_id,
-                        BuffersPtr &&s_l) {
-        unique_ptr<PreRunExecution> p{
-            new PreRunExecution(place, f_id, move(s_l))};
+  public:
+    Execution::ExeId submitExecution(const Place &place, const string &f_id,
+                                     BuffersPtr &&s_l) {
+        auto id = ExecutionFactory(place, f_id, move(s_l));
         // TODO turn prerun into running: release the buffers' mem
         // TODO submit exe to run
-        int id = p->id;
-        FinishStack::get()->addExecutionToCurrentFinish(move(p));
+        FinishStack::get()->addExecutionToCurrentFinish(id);
         return id;
     }
 };
 
 class BlockedExecManager : public ExecManager,
+                           public ExecutionWaitor,
                            public Singleton<BlockedExecManager> {  // singleton
     friend class Singleton<BlockedExecManager>;
 
-   private:
-    typedef std::unique_ptr<Execution> ExecutionPtr;
-    typedef std::shared_ptr<PreRunExecution> PreRunExecutionPtr;
-    std::queue<PreRunExecutionPtr>
-        execution_unprocessed;  // TODO: thread safe queue
-    std::unordered_map<int, ExecutionPtr> running_exectuion;
-
-   public:
-    int submitExecution(const Place &place, const string &f_id,
-                        BuffersPtr &&s_l) {
-        PreRunExecutionPtr p{new PreRunExecution(place, f_id, move(s_l))};
-        int id = p->id;
-        execution_unprocessed.push(move(p));
+  public:
+    Execution::ExeId submitExecution(const Place &place, const string &f_id,
+                                     BuffersPtr &&s_l) {
+        auto id = ExecutionFactory(place, f_id, move(s_l));
         return id;
-    }
-    void pickToRun() {}
-    Buffer wait(int id) {  // TODO FAKE wait for
-        while (true) {
-            if (execution_unprocessed.size() == 0) {
-                std::this_thread::sleep_for(chrono::seconds(2));
-                continue;
-            } else {
-                auto pre_e = move(execution_unprocessed.front());
-                execution_unprocessed.pop();
-                return (*pre_e->s_l)[0];
-                // TODO conver to running and add finised queue
-            }
-        }
     }
 };
 
 // direct call from user, encapsulate the exe submission
 // also doing serializtion
 class Coordinator {
-   protected:
+  protected:
     Coordinator(){};
 
-   public:
+  public:
     template <class MngT, class Ret, class... ArgTypes>
-    static int RemoteSubmit(Place &place, Ret(f)(ArgTypes...),
-                             const ArgTypes& ... args) {  // TODO args copied? now let forbid the &&
+    static Execution::ExeId RemoteSubmit(
+        Place &place, Ret(f)(ArgTypes...),
+        const ArgTypes &... args) {  // TODO args copied? now let forbid the &&
         const string f_id = function_id(f);
-        auto s_l = Serializer::serializeList(args...); 
-        int id =
+        auto s_l = Serializer::serializeList(args...);
+        Execution::ExeId id =
             MngT::get()->submitExecution(place, f_id, move(s_l));
         return id;
     }
     // blocked submit
     template <class Ret, class... ArgTypes>
-    static int BlockedSubmit(Place &place, Ret(f)(ArgTypes...),
-                             const ArgTypes& ... args) {  // TODO args copied? now let forbid the &&
+    static Execution::ExeId BlockedSubmit(
+        Place &place, Ret(f)(ArgTypes...),
+        const ArgTypes &... args) {  // TODO args copied? now let forbid the &&
         // TODO: no serialization needed if run local
         // TODO: if local submit to local execution schedualler
-        int id;
-        if(false) { //if islocal
-          
-        }else{
-        //Serialization in Blocked submit can be blocked
-          id = RemoteSubmit<BlockedExecManager>(place, f, args...);
+        Execution::ExeId id;
+        if (false) {  // if islocal
+
+        } else {
+            // Serialization in Blocked submit can be blocked
+            id = RemoteSubmit<BlockedExecManager>(place, f, args...);
         }
         return id;
     }
     template <class Ret>
-    static Ret getReturnValue(const int e_id) {
+    static Ret getReturnValue(const Execution::ExeId e_id) {
         Buffer ret = BlockedExecManager::get()->wait(e_id);
         return Serializer::deSerialize<Ret>(ret);
     }
@@ -217,11 +219,11 @@ class Coordinator {
     // unblocked submit
     template <class Ret, class... ArgTypes>
     static void Submit(Place &place, Ret(f)(ArgTypes...),
-                       const ArgTypes&... args) {  // TODO args copied?
+                       const ArgTypes &... args) {  // TODO args copied?
         // TODO: no serialization needed if run local
         // TODO: if local submit to local execution schedualler
-        if(false){ //if is local
-        }else{
+        if (false) {  // if is local
+        } else {
             // TODO: new tread and to below
             RemoteSubmit<AsyncExecManager>(place, f, args...);
         }
@@ -241,7 +243,7 @@ class AsyncSubmitter : public Submitter {
 class BlockedSubmitter : public Submitter {
     Place place;
 
-   public:
+  public:
     BlockedSubmitter() {}
     BlockedSubmitter(const Place &p) : place(p) {}
     template <class Ret, class... ArgTypes>

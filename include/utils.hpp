@@ -26,16 +26,6 @@ class Singleton {
 template <class C>
 C *Singleton<C>::_instance = nullptr;
 
-template <class Rt, class... Argtypes>
-const string function_id(Rt(f)(Argtypes...)) {
-    return typeid(f).name();
-}
-
-template <class Rt, class... Argtypes>
-const string function_id(function<Rt(Argtypes...)>&f) {
-    return typeid(f).name();
-}
-
 _THALLIUM_END_NAMESPACE
 
 #endif

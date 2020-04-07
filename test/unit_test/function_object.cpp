@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "thallium.hpp"
-#include "utils.hpp"
 
 using namespace thallium;
 
@@ -82,7 +81,7 @@ TEST_CASE("Test Function Manager") {
     };
     std::function<int(int, int, int, std::string, int)> f1_ = f1;
     register_func(f1_);
-    auto fobj = thallium::getFunctionObject(function_id(f1_));
+    auto fobj = thallium::get_function_object(function_id(f1_));
 
     vector<BoxedValue> bvs;
     int a = 1, b = 1, d = 3, e = 4;
@@ -96,7 +95,7 @@ TEST_CASE("Test Function Manager") {
     REQUIRE(*BoxedValue::boxCast<int>(bv) == 13);
 
     register_func(func_test);
-    auto fobj2 = thallium::getFunctionObject(function_id(func_test));
+    auto fobj2 = thallium::get_function_object(function_id(func_test));
     BoxedValue bv2 = (*fobj2)(bvs);
     REQUIRE(*BoxedValue::boxCast<int>(bv2) == 48);
     REQUIRE_THROWS_AS(register_func(func_test), std::logic_error);

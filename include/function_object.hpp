@@ -19,6 +19,7 @@ _THALLIUM_BEGIN_NAMESPACE
 using namespace std;
 
 using Buffers = vector<string>;
+typedef unsigned int FuncId;
 
 class BoxedValue {  // move value to stack TODO need optimization to reduce
                     // copy. Need to consider how the serialization is done
@@ -67,6 +68,41 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
         return std::static_pointer_cast<T>(b.v_ptr);
     }
 };
+
+struct FuncIdGen{ //TODO need thread safe?
+    static FuncId current;
+    static unordered_map<string, FuncId> id_lookup;
+    static FuncId genId(){
+        return current++;
+    }
+    static FuncId getIdfromMangled(const string &s){
+        if (id_lookup.count(s)){
+            return id_lookup[s];
+        }
+        auto i = current++;
+        id_lookup.insert({s, i});
+        return i;
+    }
+};
+
+FuncId FuncIdGen::current = 0;
+unordered_map<string, FuncId> FuncIdGen::id_lookup{};
+
+template <class T>
+const string get_mangled(const T t){
+    return typeid(t).name();
+}
+
+template <class Rt, class... Argtypes> //TODO compile time hash map shorten the id
+FuncId function_id(Rt(f)(Argtypes...)) {
+    return FuncIdGen::getIdfromMangled(get_mangled(f));
+}
+
+template <class Rt, class... Argtypes>
+FuncId function_id(function<Rt(Argtypes...)>&f) {
+    return FuncIdGen::getIdfromMangled(get_mangled(f));
+}
+
 
 namespace exception {
 class ParameterError : public std::range_error {
@@ -206,19 +242,19 @@ FunctionObjectImpl<void, ArgTypes...> make_void_function_object(
 
 class FuncManager : public Singleton<FuncManager> {
     friend class Singleton<FuncManager>;
-    unordered_map<string, shared_ptr<FunctionObjectBase>> f_table;
+    unordered_map<FuncId, shared_ptr<FunctionObjectBase>> f_table;
 
    public:
     FuncManager() {}
 
-    void addFunc(const string &f_id,
+    void addFunc(const FuncId &f_id,
                  const shared_ptr<FunctionObjectBase> &f_ptr) {
       if(f_table.count(f_id) != 0)
         TI_RAISE(std::logic_error(thallium::format("The function: {} has been registered!", f_id)));
       f_table.insert({f_id, f_ptr});
     }
 
-    shared_ptr<FunctionObjectBase> getFuncObj(const string &f_id) {
+    shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id) {
         return f_table[f_id];
     }
 };
@@ -256,7 +292,7 @@ void register_void_func(function<void(ArgTypes...)> &func) {
     FuncManager::get()->addFunc(f_id, p);
 }
 
-shared_ptr<FunctionObjectBase> getFunctionObject(const string &f_id){
+shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id){
   return FuncManager::get()->getFuncObj(f_id);
 }
 

@@ -14,6 +14,7 @@
 #include "exception.hpp"
 #include "serialize.hpp"
 #include "utils.hpp"
+#include "function_object.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 using namespace std;
@@ -29,23 +30,23 @@ class Place {};  // TODO: finish here
 
 static Place this_host{};
 
-enum class ExeState { pre_run, scheduled, running, collecting, finished };
+enum class ExeState { pre_run, disptached, running, collecting, finished };
 
 class ExecutionHub;
 class Execution {  // TODO: state machine might be better
     friend class ExecutionHub;
 
   public:
-    typedef int ExeId;
+    typedef unsigned int ExeId;
     static void init_statics() { current_id = 0; }
 
   protected:
     const ExeId id;
-    const string f_id;
+    const FuncId f_id;
     const Place place;
     const BuffersPtr s_l;
     ExeState state;
-    Execution(const Place &place, const string &f_id, BuffersPtr &&s_l)
+    Execution(const Place &place, const FuncId &f_id, BuffersPtr &&s_l)
         : id(current_id++),
           f_id(f_id),
           place(place),
@@ -64,8 +65,9 @@ class ExecutionHub : public Singleton<ExecutionHub> {
     std::unordered_map<Execution::ExeId, ExecutionPtr> all_exes;
     std::queue<Execution::ExeId> pending_exes;  // TODO: thread safe queue
   public:
-    Execution::ExeId newExecution(const Place &place, const string &f_id,
+    Execution::ExeId newExecution(const Place &place, const FuncId &f_id,
                                   BuffersPtr &&s_l) {
+        //note: can be called from different thread
         unique_ptr<Execution> p{new Execution(place, f_id, move(s_l))};
         auto id = p->id;
         all_exes.insert({id, move(p)});
@@ -73,7 +75,8 @@ class ExecutionHub : public Singleton<ExecutionHub> {
         return id;
     }
 
-    Buffer wait(Execution::ExeId id) {  // TODO FAKE wait for
+    Buffer wait(Execution::ExeId id) {  // TODO FAKE wait for 
+        //note: can be called from different thread
         auto &pre_e = all_exes[id];
         // TODO relase the execution object if called
         return Buffer{};
@@ -81,7 +84,7 @@ class ExecutionHub : public Singleton<ExecutionHub> {
 };
 
 // factory method
-Execution::ExeId ExecutionFactory(const Place &place, const string &f_id,
+Execution::ExeId ExecutionFactory(const Place &place, const FuncId &f_id,
                                   BuffersPtr &&s_l) {
     return ExecutionHub::get()->newExecution(place, f_id, move(s_l));
 }
@@ -148,7 +151,7 @@ class AsyncExecManager : public ExecManager,
     friend class Singleton<AsyncExecManager>;
 
   public:
-    Execution::ExeId submitExecution(const Place &place, const string &f_id,
+    Execution::ExeId submitExecution(const Place &place, const FuncId &f_id,
                                      BuffersPtr &&s_l) {
         auto id = ExecutionFactory(place, f_id, move(s_l));
         // TODO turn prerun into running: release the buffers' mem
@@ -164,7 +167,7 @@ class BlockedExecManager : public ExecManager,
     friend class Singleton<BlockedExecManager>;
 
   public:
-    Execution::ExeId submitExecution(const Place &place, const string &f_id,
+    Execution::ExeId submitExecution(const Place &place, const FuncId &f_id,
                                      BuffersPtr &&s_l) {
         auto id = ExecutionFactory(place, f_id, move(s_l));
         return id;
@@ -182,7 +185,7 @@ class Coordinator {
     static Execution::ExeId RemoteSubmit(
         Place &place, Ret(f)(ArgTypes...),
         const ArgTypes &... args) {  // TODO args copied? now let forbid the &&
-        const string f_id = function_id(f);
+        const FuncId f_id = function_id(f);
         auto s_l = Serializer::serializeList(args...);
         Execution::ExeId id =
             MngT::get()->submitExecution(place, f_id, move(s_l));

@@ -27,10 +27,10 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
                     // TODO type consistancy check
     shared_ptr<void> v_ptr;
 
-   protected:
+  protected:
     BoxedValue() = delete;
 
-   public:
+  public:
     BoxedValue(const BoxedValue &) = default;
     BoxedValue(BoxedValue &&bv) = default;
 
@@ -63,20 +63,18 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
     BoxedValue(shared_ptr<T> &sp) {
         v_ptr = std::static_pointer_cast<void>(sp);
     }
-    template <class T>
-    static shared_ptr<T> boxCast(BoxedValue &b) {
-        return std::static_pointer_cast<T>(b.v_ptr);
+    template <class T, class T_d = typename std::remove_reference<T>::type>
+    static shared_ptr<T_d> boxCast(BoxedValue &b) {
+        return std::static_pointer_cast<T_d>(b.v_ptr);
     }
 };
 
-struct FuncIdGen{ //TODO need thread safe?
+struct FuncIdGen {  // TODO need thread safe?
     static FuncId current;
     static unordered_map<string, FuncId> id_lookup;
-    static FuncId genId(){
-        return current++;
-    }
-    static FuncId getIdfromMangled(const string &s){
-        if (id_lookup.count(s)){
+    static FuncId genId() { return current++; }
+    static FuncId getIdfromMangled(const string &s) {
+        if (id_lookup.count(s)) {
             return id_lookup[s];
         }
         auto i = current++;
@@ -89,42 +87,41 @@ FuncId FuncIdGen::current = 0;
 unordered_map<string, FuncId> FuncIdGen::id_lookup{};
 
 template <class T>
-const string get_mangled(const T t){
+const string get_mangled(const T t) {
     return typeid(t).name();
 }
 
-template <class Rt, class... Argtypes> //TODO compile time hash map shorten the id
+template <class Rt, class... Argtypes>
 FuncId function_id(Rt(f)(Argtypes...)) {
     return FuncIdGen::getIdfromMangled(get_mangled(f));
 }
 
 template <class Rt, class... Argtypes>
-FuncId function_id(function<Rt(Argtypes...)>&f) {
+FuncId function_id(function<Rt(Argtypes...)> &f) {
     return FuncIdGen::getIdfromMangled(get_mangled(f));
 }
 
-
 namespace exception {
 class ParameterError : public std::range_error {
-   public:
+  public:
     ParameterError(const std::string &what) : range_error(what) {}
 };
 }  // namespace exception
 
 class FunctionObjectBase {
-   public:
+  public:
     // virtual BoxedValue operator()(BoxedValue args...) =0;
     virtual BoxedValue operator()(vector<BoxedValue> &args) = 0;
 
     virtual vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
 
-   protected:
+  protected:
     virtual ~FunctionObjectBase() {}
 };
 
 template <class Ret, class... ArgTypes>
 class FunctionSingnature {
-   public:
+  public:
     static vector<BoxedValue> deSerializeArguments(const Buffers &buffers) {
         auto bvs = vector<BoxedValue>{};
         _deSerializeArguments<0, ArgTypes...>(bvs, buffers);
@@ -136,8 +133,8 @@ class FunctionSingnature {
         return _bindArguments<0, ArgTypes...>(f, bvs);
     }
 
-   private:
-    template <int index, class Arg1, class... ArgTs>  // TODO: by forwording?
+  private:
+    template <int index, class Arg1, class... ArgTs>
     static void _deSerializeArguments(vector<BoxedValue> &bvs,
                                       const Buffers &buffers) {
         if (index + 1 > buffers.size()) {
@@ -145,7 +142,8 @@ class FunctionSingnature {
                 "Function arguments arity doesnt match: given {}, need {}",
                 buffers.size(), 1 + index + sizeof...(ArgTs)));
         }
-        bvs.push_back(Serializer::deSerialize<Arg1>(buffers[index]));
+        bvs.push_back(
+            Serializer::deSerialize<remove_cvref_t<Arg1>>(buffers[index]));
         _deSerializeArguments<index + 1, ArgTs...>(bvs, buffers);
     }
     template <int index>
@@ -158,7 +156,8 @@ class FunctionSingnature {
         }
     }
 
-    template <int index, class Arg1, class... ArgTs>
+    template <int index, class Arg1,
+              class... ArgTs>  // TODO deal with & and && type
     static function<Ret()> _bindArguments(function<Ret(Arg1, ArgTs...)> &f,
                                           vector<BoxedValue> &bvs) {
         if (index == bvs.size()) {
@@ -191,9 +190,9 @@ class FunctionSingnature {
 template <class Ret, class... ArgTypes>
 class FunctionObjectImpl : public FunctionObjectBase {
     using FuncSignature = FunctionSingnature<Ret, ArgTypes...>;
-    function<Ret(ArgTypes...)> f;
+    function<Ret(ArgTypes...)> f;  // TODO to decay
 
-   public:
+  public:
     FunctionObjectImpl(Ret(func)(ArgTypes...))
         : FunctionObjectBase(), f(func) {}
 
@@ -244,14 +243,15 @@ class FuncManager : public Singleton<FuncManager> {
     friend class Singleton<FuncManager>;
     unordered_map<FuncId, shared_ptr<FunctionObjectBase>> f_table;
 
-   public:
+  public:
     FuncManager() {}
 
     void addFunc(const FuncId &f_id,
                  const shared_ptr<FunctionObjectBase> &f_ptr) {
-      if(f_table.count(f_id) != 0)
-        TI_RAISE(std::logic_error(thallium::format("The function: {} has been registered!", f_id)));
-      f_table.insert({f_id, f_ptr});
+        if (f_table.count(f_id) != 0)
+            TI_RAISE(std::logic_error(thallium::format(
+                "The function: {} has been registered!", f_id)));
+        f_table.insert({f_id, f_ptr});
     }
 
     shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id) {
@@ -262,7 +262,7 @@ class FuncManager : public Singleton<FuncManager> {
 template <class Ret, class... ArgTypes>
 void register_func(Ret(func)(
     ArgTypes...)) {  // redundant codes, refectoring after future changes.
-    auto _p = make_shared<FunctionObject<Ret,ArgTypes...>>(func);
+    auto _p = make_shared<FunctionObject<Ret, ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
@@ -270,7 +270,7 @@ void register_func(Ret(func)(
 
 template <class Ret, class... ArgTypes>
 void register_func(function<Ret(ArgTypes...)> &func) {
-    auto _p = make_shared<FunctionObject<Ret,ArgTypes...>>(func);
+    auto _p = make_shared<FunctionObject<Ret, ArgTypes...>>(func);
     auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
@@ -292,8 +292,8 @@ void register_void_func(function<void(ArgTypes...)> &func) {
     FuncManager::get()->addFunc(f_id, p);
 }
 
-shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id){
-  return FuncManager::get()->getFuncObj(f_id);
+shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id) {
+    return FuncManager::get()->getFuncObj(f_id);
 }
 
 _THALLIUM_END_NAMESPACE

@@ -25,6 +25,26 @@ TEST_CASE("Test deSerializeArguments template function") {
             std::vector<std::string>{"1", "2", "3", "4", "5", "6"}),
         "Function arguments arity doesnt match: given 6, need 5");
 }
+TEST_CASE("Test Function Object bind for cv and ref") {
+    auto f1 = [](const int a, const int & b, int d, std::string & c, int e, std::string f) {
+        return a + b + d + e + c.size()+ f.size();
+    };
+    std::function<int(const int, const int &, int, std::string &, int, std::string )> f1_ = f1;
+    auto fobj = make_function_object(f1_);
+
+    vector<BoxedValue> bvs;
+    int a = 1, b = 1, d = 3, e = 4;
+    string c = "fdas";
+    string f = "hahah";
+    bvs.push_back(BoxedValue(a));
+    bvs.push_back(BoxedValue(move(b)));
+    bvs.push_back(BoxedValue(d));
+    bvs.push_back(BoxedValue(c));
+    bvs.push_back(BoxedValue(e));
+    bvs.push_back(BoxedValue(f));
+    BoxedValue bv = fobj(bvs);
+    REQUIRE(*BoxedValue::boxCast<int>(bv) == 18);
+}
 
 TEST_CASE("Test Function Object") {
     auto f1 = [](int a, int b, int d, std::string c, int e) {

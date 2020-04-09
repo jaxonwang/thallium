@@ -119,8 +119,12 @@ class FunctionObjectBase {
     virtual ~FunctionObjectBase() {}
 };
 
+
+template <class T>
+class FunctionSingnature;
+
 template <class Ret, class... ArgTypes>
-class FunctionSingnature {
+class FunctionSingnature<Ret(ArgTypes...)> {
   public:
     static vector<BoxedValue> deSerializeArguments(const Buffers &buffers) {
         auto bvs = vector<BoxedValue>{};
@@ -130,7 +134,7 @@ class FunctionSingnature {
 
     static function<Ret()> bindArguments(function<Ret(ArgTypes...)> &f,
                                          vector<BoxedValue> &bvs) {
-        return _bindArguments<0, ArgTypes...>(f, bvs);
+        return _bindArguments<0>(f, bvs);
     }
 
   private:
@@ -157,7 +161,7 @@ class FunctionSingnature {
     }
 
     template <int index, class Arg1,
-              class... ArgTs>  // TODO deal with & and && type
+              class... ArgTs>
     static function<Ret()> _bindArguments(function<Ret(Arg1, ArgTs...)> &f,
                                           vector<BoxedValue> &bvs) {
         if (index == bvs.size()) {
@@ -168,10 +172,10 @@ class FunctionSingnature {
         }
         auto a1 = BoxedValue::boxCast<Arg1>(bvs[index]);
 
-        function<Ret(ArgTs...)> _f = [a1, f](ArgTs... args) {
-            return f(*a1, args...);
+        function<Ret(ArgTs...)> _f = [a1, f](ArgTs &&... args) {
+            return f(static_cast<Arg1>(*a1), forward<ArgTs>(args)...);
         };
-        return _bindArguments<index + 1, ArgTs...>(_f, bvs);
+        return _bindArguments<index + 1>(_f, bvs);
     }
 
     template <int index>
@@ -187,10 +191,13 @@ class FunctionSingnature {
     }
 };
 
+template <class T>
+class FunctionObjectImpl;
+
 template <class Ret, class... ArgTypes>
-class FunctionObjectImpl : public FunctionObjectBase {
-    using FuncSignature = FunctionSingnature<Ret, ArgTypes...>;
-    function<Ret(ArgTypes...)> f;  // TODO to decay
+class FunctionObjectImpl<Ret(ArgTypes...)> : public FunctionObjectBase {
+    using FuncSignature = FunctionSingnature<Ret(ArgTypes...)>;
+    function<Ret(ArgTypes...)>f;
 
   public:
     FunctionObjectImpl(Ret(func)(ArgTypes...))
@@ -210,33 +217,33 @@ class FunctionObjectImpl : public FunctionObjectBase {
 };
 
 template <class Ret, class... ArgTypes>
-class VoidFunctionObject : public FunctionObjectImpl<Ret, ArgTypes...> {
+class VoidFunctionObject : public FunctionObjectImpl<Ret(ArgTypes...)> {
     static_assert(is_same<Ret, void>::value,
                   "Void function's return type must be void!");
 };
 
 template <class Ret, class... ArgTypes>
-using FunctionObject = FunctionObjectImpl<Ret, ArgTypes...>;
+using FunctionObject = FunctionObjectImpl<Ret(ArgTypes...)>;
 
 template <class Ret, class... ArgTypes>
-FunctionObjectImpl<Ret, ArgTypes...> make_function_object(
+FunctionObjectImpl<Ret(ArgTypes...)> make_function_object(
     Ret(func)(ArgTypes...)) {
-    return FunctionObjectImpl<Ret, ArgTypes...>(func);
+    return FunctionObjectImpl<Ret(ArgTypes...)>(func);
 }
 template <class Ret, class... ArgTypes>
-FunctionObjectImpl<Ret, ArgTypes...> make_function_object(
+FunctionObjectImpl<Ret(ArgTypes...)> make_function_object(
     const function<Ret(ArgTypes...)> &func) {
-    return FunctionObjectImpl<Ret, ArgTypes...>(func);
+    return FunctionObjectImpl<Ret(ArgTypes...)>(func);
 }
 template <class... ArgTypes>
-FunctionObjectImpl<void, ArgTypes...> make_void_function_object(
+FunctionObjectImpl<void(ArgTypes...)> make_void_function_object(
     void(func)(ArgTypes...)) {
-    return VoidFunctionObject<void, ArgTypes...>(func);
+    return VoidFunctionObject<void( ArgTypes...)>(func);
 }
 template <class... ArgTypes>
-FunctionObjectImpl<void, ArgTypes...> make_void_function_object(
+FunctionObjectImpl<void( ArgTypes...)> make_void_function_object(
     const function<void(ArgTypes...)> &func) {
-    return VoidFunctionObject<void, ArgTypes...>(func);
+    return VoidFunctionObject<void( ArgTypes...)>(func);
 }
 
 class FuncManager : public Singleton<FuncManager> {

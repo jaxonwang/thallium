@@ -8,15 +8,15 @@
 using namespace thallium;
 
 TEST_CASE("Test deSerializeArguments template function") {
-    auto s = thallium::FunctionSingnature<int, int, float, double>{};
+    auto s = thallium::FunctionSingnature<int(int, float, double)>{};
     auto bvs =
         s.deSerializeArguments(std::vector<std::string>{"2", "3.14", "5.453"});
     REQUIRE(*BoxedValue::boxCast<int>(bvs[0]) == 2);
     REQUIRE(*BoxedValue::boxCast<float>(bvs[1]) == (float)3.14);
     REQUIRE(*BoxedValue::boxCast<double>(bvs[2]) == (double)5.453);
 
-    auto s1 = thallium::FunctionSingnature<int, int, float, double, std::string,
-                                           long double>{};
+    auto s1 = thallium::FunctionSingnature<int( int, float, double, std::string,
+                                           long double)>{};
     REQUIRE_THROWS_WITH(
         s1.deSerializeArguments(std::vector<std::string>{"1", "2", "3", "4"}),
         "Function arguments arity doesnt match: given 4, need 5");
@@ -25,11 +25,12 @@ TEST_CASE("Test deSerializeArguments template function") {
             std::vector<std::string>{"1", "2", "3", "4", "5", "6"}),
         "Function arguments arity doesnt match: given 6, need 5");
 }
+
 TEST_CASE("Test Function Object bind for cv and ref") {
-    auto f1 = [](const int a, const int & b, int d, std::string & c, int e, std::string f) {
+    auto f1 = [](const int a, const int & b, int d, std::string & c, int e, std::string &&f) {
         return a + b + d + e + c.size()+ f.size();
     };
-    std::function<int(const int, const int &, int, std::string &, int, std::string )> f1_ = f1;
+    std::function<int(const int, const int &, int, std::string &, int, std::string &&)> f1_ = f1;
     auto fobj = make_function_object(f1_);
 
     vector<BoxedValue> bvs;

@@ -33,7 +33,8 @@ file(GLOB unit_test_src
     "unit_test/*.cpp"
     )
 add_executable(unit_test ${unit_test_src})
-target_link_libraries(example gtest_main)
+include_directories(".")
+target_link_libraries(unit_test gtest_main)
 
 
 file(GLOB i_test_src 

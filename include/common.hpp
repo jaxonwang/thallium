@@ -12,9 +12,9 @@
 
 #include "exception.hpp"
 
-_THALLIUM_BEGIN_NAMESPACE
-
 using namespace std;
+
+_THALLIUM_BEGIN_NAMESPACE
 
 namespace ti_exception {
 class format_error : public runtime_error {

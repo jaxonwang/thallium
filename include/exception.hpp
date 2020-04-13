@@ -19,12 +19,15 @@ namespace ti_exception {
 //
 
 #ifdef THALLIUM_ENABLE_BACKTRACE
-#define TI_RAISE(x)            {                                        \
-    std::string f_l =                                                  \
-        std::string{__FILE__} + ", line: " + std::to_string(__LINE__); \
-    throw thallium::ti_exception::raise(x) << file_line(f_l);}
+#define TI_RAISE(x)                                                        \
+    {                                                                      \
+        std::string f_l =                                                  \
+            std::string{__FILE__} + ", line: " + std::to_string(__LINE__); \
+        throw thallium::ti_exception::raise(x) << file_line(f_l);          \
+    }
 #else
-#define TI_RAISE(x) { throw x; }
+#define TI_RAISE(x) \
+    { throw x; }
 #endif
 
 template <typename E>
@@ -38,7 +41,7 @@ auto raise(const E &e) -> decltype(boost::enable_error_info(e)) {
 inline void handle_uncatched_and_abort(const std::exception &e) {
 #ifdef THALLIUM_ENABLE_BACKTRACE
     std::cerr << "Exception: " << e.what() << std::endl;
-    std::cerr << "in: "<< *boost::get_error_info<file_line>(e) << std::endl;
+    std::cerr << "in: " << *boost::get_error_info<file_line>(e) << std::endl;
     const boost::stacktrace::stacktrace *st = boost::get_error_info<traced>(e);
     if (st) {
         std::cerr << "stacktrace:" << std::endl << *st << std::endl;

@@ -16,8 +16,9 @@
 #include "utils.hpp"
 #include "function_object.hpp"
 
-_THALLIUM_BEGIN_NAMESPACE
 using namespace std;
+
+_THALLIUM_BEGIN_NAMESPACE
 
 struct closure_holder {};
 

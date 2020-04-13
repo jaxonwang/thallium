@@ -14,9 +14,9 @@
 #include "serialize.hpp"
 #include "utils.hpp"
 
-_THALLIUM_BEGIN_NAMESPACE
-
 using namespace std;
+
+_THALLIUM_BEGIN_NAMESPACE
 
 using Buffers = vector<string>;
 typedef unsigned int FuncId;

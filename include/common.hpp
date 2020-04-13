@@ -113,7 +113,7 @@ outloop:
 }
 
 template <class... Args>
-string format(const string &fmt, const Args &... args) {
+inline string format(const string &fmt, const Args &... args) {
     stringstream ss;
     _format(ss, fmt, 0, args...);
     return ss.str();

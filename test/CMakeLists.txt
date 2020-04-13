@@ -35,7 +35,8 @@ file(GLOB unit_test_src
 add_executable(unit_test ${unit_test_src})
 include_directories(".")
 target_link_libraries(unit_test gtest_main)
-
+include(GoogleTest)
+gtest_add_tests(TARGET unit_test)
 
 file(GLOB i_test_src 
     "integration_test/*.cpp"

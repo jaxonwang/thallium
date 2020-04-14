@@ -17,7 +17,7 @@ string my_serialized_method(T &a) { // TODO: user implement serialization api
   return to_string(a);
 }
 
-string my_serialized_method(string &a) { return a; }
+string my_serialized_method(string &a);
 
 namespace Serializer {
 
@@ -29,11 +29,11 @@ template <class... ArgTypes> BuffersPtr serializeList(const ArgTypes&... args) {
   return BuffersPtr{new Buffers{my_serialized_method(args)...}};
 }
 template <class T> T deSerialize(string s) { return static_cast<T>(s); }
-template <> int deSerialize<int>(string s) { return stoi(s); }
-template <> double deSerialize<double>(string s) { return stod(s); }
-template <> long double deSerialize<long double>(string s) { return stold(s); }
-template <> float deSerialize<float>(string s) { return stof(s); }
-template <> char deSerialize<char>(string s) { return s[0]; }
+template <> int deSerialize<int>(string s);
+template <> double deSerialize<double>(string s);
+template <> long double deSerialize<long double>(string s);
+template <> float deSerialize<float>(string s); 
+template <> char deSerialize<char>(string s);
 } // namespace Serializer
 
 _THALLIUM_END_NAMESPACE

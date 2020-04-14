@@ -73,18 +73,8 @@ struct FuncIdGen {  // TODO need thread safe?
     static FuncId current;
     static unordered_map<string, FuncId> id_lookup;
     static FuncId genId() { return current++; }
-    static FuncId getIdfromMangled(const string &s) {
-        if (id_lookup.count(s)) {
-            return id_lookup[s];
-        }
-        auto i = current++;
-        id_lookup.insert({s, i});
-        return i;
-    }
+    static FuncId getIdfromMangled(const string &s);
 };
-
-FuncId FuncIdGen::current = 0;
-unordered_map<string, FuncId> FuncIdGen::id_lookup{};
 
 template <class T>
 const string get_mangled(const T t) {
@@ -118,7 +108,6 @@ class FunctionObjectBase {
   protected:
     virtual ~FunctionObjectBase() {}
 };
-
 
 template <class T>
 class FunctionSingnature;
@@ -160,8 +149,7 @@ class FunctionSingnature<Ret(ArgTypes...)> {
         }
     }
 
-    template <int index, class Arg1,
-              class... ArgTs>
+    template <int index, class Arg1, class... ArgTs>
     static function<Ret()> _bindArguments(function<Ret(Arg1, ArgTs...)> &f,
                                           vector<BoxedValue> &bvs) {
         if (index == bvs.size()) {
@@ -197,7 +185,7 @@ class FunctionObjectImpl;
 template <class Ret, class... ArgTypes>
 class FunctionObjectImpl<Ret(ArgTypes...)> : public FunctionObjectBase {
     using FuncSignature = FunctionSingnature<Ret(ArgTypes...)>;
-    function<Ret(ArgTypes...)>f;
+    function<Ret(ArgTypes...)> f;
 
   public:
     FunctionObjectImpl(Ret(func)(ArgTypes...))
@@ -238,12 +226,12 @@ FunctionObjectImpl<Ret(ArgTypes...)> make_function_object(
 template <class... ArgTypes>
 FunctionObjectImpl<void(ArgTypes...)> make_void_function_object(
     void(func)(ArgTypes...)) {
-    return VoidFunctionObject<void( ArgTypes...)>(func);
+    return VoidFunctionObject<void(ArgTypes...)>(func);
 }
 template <class... ArgTypes>
-FunctionObjectImpl<void( ArgTypes...)> make_void_function_object(
+FunctionObjectImpl<void(ArgTypes...)> make_void_function_object(
     const function<void(ArgTypes...)> &func) {
-    return VoidFunctionObject<void( ArgTypes...)>(func);
+    return VoidFunctionObject<void(ArgTypes...)>(func);
 }
 
 class FuncManager : public Singleton<FuncManager> {
@@ -254,16 +242,9 @@ class FuncManager : public Singleton<FuncManager> {
     FuncManager() {}
 
     void addFunc(const FuncId &f_id,
-                 const shared_ptr<FunctionObjectBase> &f_ptr) {
-        if (f_table.count(f_id) != 0)
-            TI_RAISE(std::logic_error(thallium::format(
-                "The function: {} has been registered!", f_id)));
-        f_table.insert({f_id, f_ptr});
-    }
+                 const shared_ptr<FunctionObjectBase> &f_ptr);
 
-    shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id) {
-        return f_table[f_id];
-    }
+    shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id);
 };
 
 template <class Ret, class... ArgTypes>
@@ -299,9 +280,7 @@ void register_void_func(function<void(ArgTypes...)> &func) {
     FuncManager::get()->addFunc(f_id, p);
 }
 
-shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id) {
-    return FuncManager::get()->getFuncObj(f_id);
-}
+shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id);
 
 _THALLIUM_END_NAMESPACE
 

@@ -12,9 +12,9 @@
 
 #include "common.hpp"
 #include "exception.hpp"
+#include "function_object.hpp"
 #include "serialize.hpp"
 #include "utils.hpp"
-#include "function_object.hpp"
 
 using namespace std;
 
@@ -47,16 +47,10 @@ class Execution {  // TODO: state machine might be better
     const Place place;
     const BuffersPtr s_l;
     ExeState state;
-    Execution(const Place &place, const FuncId &f_id, BuffersPtr &&s_l)
-        : id(current_id++),
-          f_id(f_id),
-          place(place),
-          s_l(move(s_l)),
-          state{ExeState::pre_run} {}
+    Execution(const Place &place, const FuncId &f_id, BuffersPtr &&s_l);
     Execution() = delete;
     static ExeId current_id;  // TODO: thread safe mark it atomic?
 };
-Execution::ExeId Execution::current_id;
 
 class ExecutionHub : public Singleton<ExecutionHub> {
     friend class Singleton<ExecutionHub>;
@@ -66,29 +60,9 @@ class ExecutionHub : public Singleton<ExecutionHub> {
     std::unordered_map<Execution::ExeId, ExecutionPtr> all_exes;
     std::queue<Execution::ExeId> pending_exes;  // TODO: thread safe queue
   public:
-    Execution::ExeId newExecution(const Place &place, const FuncId &f_id,
-                                  BuffersPtr &&s_l) {
-        //note: can be called from different thread
-        unique_ptr<Execution> p{new Execution(place, f_id, move(s_l))};
-        auto id = p->id;
-        all_exes.insert({id, move(p)});
-        //TODO add to pending
-        return id;
-    }
-
-    Buffer wait(Execution::ExeId id) {  // TODO FAKE wait for 
-        //note: can be called from different thread
-        auto &pre_e = all_exes[id];
-        // TODO relase the execution object if called
-        return Buffer{};
-    }
+    Execution::ExeId newExecution(const Place &, const FuncId &, BuffersPtr &&);
+    Buffer wait(Execution::ExeId id);
 };
-
-// factory method
-Execution::ExeId ExecutionFactory(const Place &place, const FuncId &f_id,
-                                  BuffersPtr &&s_l) {
-    return ExecutionHub::get()->newExecution(place, f_id, move(s_l));
-}
 
 class ExecutionWaitor {  // wait interface
   public:
@@ -101,11 +75,7 @@ class FinishMonitor : public ExecutionWaitor {
     vector<Execution::ExeId> exes;  // TODO thread safe
   public:
     FinishMonitor() {}
-    void waitAll() {
-        for (auto &x : exes) {
-            wait(x);
-        }
-    }
+    void waitAll();
     void addExecution(Execution::ExeId &id) { exes.push_back(id); }
 };
 
@@ -113,28 +83,14 @@ class FinishStack : public Singleton<FinishStack> {
     friend class Singleton<FinishStack>;
     list<unique_ptr<FinishMonitor>> f_stack;  // TODO thread safe
   public:
-    void push(unique_ptr<FinishMonitor> &&fm_ptr) {
-        f_stack.push_back(move(fm_ptr));
-    }
-    void delete_top() { f_stack.pop_back(); }
-    unique_ptr<FinishMonitor> &get_top() {
-        if (f_stack.empty()) {
-            auto e = std::logic_error(
-                "There is no finish in finish stack. Should not reach here!");
-            TI_RAISE(e);
-        }
-        return f_stack.back();
-    }
-    void newFinish() { push(unique_ptr<FinishMonitor>{new FinishMonitor{}}); }
-    void endFinish() {
-        get_top()->waitAll();
-        delete_top();
-    }
+    void push(unique_ptr<FinishMonitor> &&fm_ptr);
+    void delete_top();
+    void newFinish();
+    void endFinish();
     void start() { newFinish(); }
     void end() { endFinish(); }
-    void addExecutionToCurrentFinish(Execution::ExeId &id) {
-        get_top()->addExecution(id);
-    }
+    void addExecutionToCurrentFinish(Execution::ExeId &id);
+    unique_ptr<FinishMonitor> &get_top();
 };
 
 class FinishSugar {
@@ -152,14 +108,8 @@ class AsyncExecManager : public ExecManager,
     friend class Singleton<AsyncExecManager>;
 
   public:
-    Execution::ExeId submitExecution(const Place &place, const FuncId &f_id,
-                                     BuffersPtr &&s_l) {
-        auto id = ExecutionFactory(place, f_id, move(s_l));
-        // TODO turn prerun into running: release the buffers' mem
-        // TODO submit exe to run
-        FinishStack::get()->addExecutionToCurrentFinish(id);
-        return id;
-    }
+    Execution::ExeId submitExecution(const Place &, const FuncId &,
+                                     BuffersPtr &&);
 };
 
 class BlockedExecManager : public ExecManager,
@@ -168,11 +118,8 @@ class BlockedExecManager : public ExecManager,
     friend class Singleton<BlockedExecManager>;
 
   public:
-    Execution::ExeId submitExecution(const Place &place, const FuncId &f_id,
-                                     BuffersPtr &&s_l) {
-        auto id = ExecutionFactory(place, f_id, move(s_l));
-        return id;
-    }
+    Execution::ExeId submitExecution(const Place &, const FuncId &,
+                                     BuffersPtr &&);
 };
 
 // direct call from user, encapsulate the exe submission
@@ -251,10 +198,7 @@ class BlockedSubmitter : public Submitter {
     }
 };
 
-void init_statics() {
-    BlockedExecManager::get();
-    Execution::init_statics();
-}
+void init_statics();
 
 _THALLIUM_END_NAMESPACE
 

@@ -34,7 +34,7 @@ file(GLOB unit_test_src
     )
 add_executable(unit_test ${unit_test_src})
 include_directories(".")
-target_link_libraries(unit_test gtest_main)
+target_link_libraries(unit_test gtest_main thallium)
 include(GoogleTest)
 gtest_add_tests(TARGET unit_test)
 
@@ -42,6 +42,7 @@ file(GLOB i_test_src
     "integration_test/*.cpp"
     )
 add_executable(integration_test ${i_test_src})
+target_link_libraries(integration_test thallium)
 
 # using boost stactrace when debug
 if(APPLE)

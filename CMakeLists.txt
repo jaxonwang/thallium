@@ -38,10 +38,10 @@ file(GLOB src_files
     )
 add_library(thallium STATIC ${src_files})
 add_library(thallium_shared SHARED ${src_files})
-# add_library(thallium_header INTERFACE)
-# target_compile_definitions(thallium_header
-#     INTERFACE LIBRARY_HEADER_ONLY
-# )
+add_library(thallium_header INTERFACE)
+target_compile_definitions(thallium_header
+    INTERFACE LIBRARY_HEADER_ONLY
+)
 
 include_directories("include")
 

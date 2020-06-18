@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <vector>
 #include <string>
 
 #include "common.hpp"
@@ -72,4 +73,41 @@ TEST(FormatTest, FormatFunction) {
                       ti_exception::format_error);
     ASSERT_THROW(format("{}hello world!", "ha1", "ha2"),
                       ti_exception::format_error);
+}
+
+TEST(StringTest, StringJoin){
+    string sep0 {","};
+    vector<string> strlst0 = {"0", "1", "2", "3", "4"};
+
+    string ret = thallium::string_join(strlst0, sep0);
+    ASSERT_EQ(ret, "0,1,2,3,4");
+    ret = thallium::string_join(vector<string>{}, sep0);
+    ASSERT_EQ(ret, "");
+    ret = thallium::string_join(strlst0, "");
+    ASSERT_EQ(ret, "01234");
+    ret = thallium::string_join(vector<string>{}, "");
+    ASSERT_EQ(ret, "");
+
+    vector<string> strlst1 = {"", "0", "", "1", "2", "3", "4", ""};
+    ret = thallium::string_join(strlst1, sep0);
+    ASSERT_EQ(ret, ",0,,1,2,3,4,");
+    ret = thallium::string_join(strlst1, "");
+    ASSERT_EQ(ret, "01234");
+
+    vector<string> strlst3 = {"", "", "", "", "", ""};
+    ret = thallium::string_join(strlst3, sep0);
+    ASSERT_EQ(ret, ",,,,,");
+
+    vector<string> strlst4 = {"hello", "world", "ha", "ha"};
+    ret = thallium::string_join(strlst4, "__");
+    ASSERT_EQ(ret, "hello__world__ha__ha");
+
+    vector<wstring> strlst2;
+    for (int i = 0; i < 5; i++) {
+        strlst2.push_back(to_wstring(i));
+    }
+    wstring sep2{L","};
+    wstring ret2 = thallium::string_join(strlst2, sep2);
+    ASSERT_EQ(ret2, wstring(L"0,1,2,3,4"));
+
 }

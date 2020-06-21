@@ -5,12 +5,13 @@
 #define _THALLIUM_BEGIN_NAMESPACE namespace thallium {
 #define _THALLIUM_END_NAMESPACE }
 
+#include <cstring>
 #include <exception>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <typeinfo>
-#include <cstring>
 
 #include "exception.hpp"
 
@@ -20,18 +21,18 @@ _THALLIUM_BEGIN_NAMESPACE
 
 namespace ti_exception {
 class format_error : public runtime_error {
-   public:
+  public:
     explicit format_error(const string &what_arg) : runtime_error(what_arg) {}
 };
 }  // namespace ti_exception
 
 inline void __raise_left_brace_unmatch(const string &fmt) {
     TI_RAISE(ti_exception::format_error("Expecting \'{\' in the brace pair: " +
-                                     fmt));
+                                        fmt));
 }
 inline void __raise_right_brace_unmatch(const string &fmt) {
     TI_RAISE(ti_exception::format_error("Expecting \'}\' in the brace pair: " +
-                                     fmt));
+                                        fmt));
 }
 
 template <class T>
@@ -94,88 +95,172 @@ inline string format(const string &fmt, const Args &... args) {
 }
 
 template <class>
-struct is_string: std::false_type{};
+struct __is_string : std::false_type {};
 
-template <class CharT>
-struct is_string<basic_string<CharT>>: std::true_type{};
+template <class CharT, class Trait, class Allocator>
+struct __is_string<basic_string<CharT, Trait, Allocator>> : std::true_type {};
 
+template <class T>
+struct is_string : __is_string<typename std::remove_cv<T>::type> {};
+
+template <class String,
+          typename enable_if<!is_same<String, String>::value, int>::type = 0>
+String *get_default_cutset() {
+    static_assert(!is_same<String, String>::value,
+                  "No default cutset provided. Please specify cutset for trim "
+                  "explicitly.");
+}
+
+template <class String,
+          typename enable_if<is_same<typename String::value_type, char>::value,
+                             int>::type = 0>
+const String *get_default_cutset() {
+    static String _s;
+    if (_s.empty()) _s = String(" \r\t\n\t");
+    return &_s;
+}
+
+template <
+    class String,
+    typename enable_if<is_same<typename String::value_type, wchar_t>::value,
+                       int>::type = 0>
+const String *get_default_cutset() {
+    static String _s;
+    if (_s.empty()) _s = String(L" \r\t\n\t");
+    return &_s;
+}
 
 template <class String>
-void string_trim_modified(String &s, const String &cutset=""){
+void string_trim_modified(String &s, const String &cutset) {
     static_assert(is_string<String>::value, "Parameter type must be string");
     String _cutset = cutset;
 
-    if(_cutset.emtpy()) 
-        _cutset = " \t\n\r";
+    if (s.empty()) return;
+    if (_cutset.empty()) return;
 
     auto l_pos = s.find_first_not_of(_cutset);
-    auto r_pos = s.find_last_not_of(_cutset);
-    auto count = r_pos - l_pos + 1;
-    s.erase(l_pos, count);
+    decltype(l_pos) count = 0;
+    if (l_pos == String::npos) {
+        count = 0;
+        s.erase(0, s.size());
+    } else {
+        auto r_pos = s.find_last_not_of(_cutset) + 1;
+        if (r_pos < s.size()) {
+            count = s.size() - r_pos;
+            s.erase(r_pos, count);
+        }
+        if (l_pos > 0) {
+            count = l_pos;
+            s.erase(0, count);
+        }
+    }
 }
 
 template <class String>
-String string_trim(const String &s, const String &cutset=""){
-    static_assert(is_string<String>::value, "Parameter type must be string");
-    String _s = s;
-    string_trim_modified(_s, cutset);
-    return _s; 
+void string_trim_modified(String &s) {
+    string_trim_modified(s, *get_default_cutset<String>());
 }
 
-template <class String, class StrList> // StrList must be SequenceContainer
-String string_join(const StrList &string_list, const String &sep){
-    static_assert(is_same<typename StrList::value_type, String>::value, "The seperator and strings in string list must be the same type!");
+// T type is either pointer to CharT or basic_string<CharT>
+template <class T>
+struct __infer_string_type {
+    static_assert(!is_same<T, T>::value, "disable general template");
+};
+
+template <class T>
+struct __infer_string_type<T *> {
+    using type = basic_string<typename std::remove_cv<T>::type>;
+};
+
+template <class CharT>
+struct __infer_string_type<basic_string<CharT>> {
+    using type = basic_string<CharT>;
+};
+
+template <class T>
+struct infer_string_type
+    : __infer_string_type<
+          // remove_cv<const char *> == const char *
+          typename std::decay<typename std::remove_cv<T>::type>::type> {};
+
+template <class T, typename enable_if<is_string<T>::value, int>::type = 0>
+T unify(T &s) {
+    return s;
+}
+
+template <class T, typename enable_if<std::is_pointer<T>::value, int>::type = 0,
+          class String = typename infer_string_type<T>::type>
+String unify(T s) {
+    if (!s) return String{};
+    return String{s};
+}
+
+// unify types of string and cstyle string here
+template <class T1, class T2,
+          class String = typename infer_string_type<T1>::type>
+String string_trim(const T1 &s, const T2 &cutset) {
+    String _s = unify(s);
+    string_trim_modified(_s, unify(cutset));
+    return _s;
+}
+
+template <class T1, class String = typename infer_string_type<T1>::type>
+String string_trim(const T1 &s) {
+    return string_trim(s, *get_default_cutset<String>());
+}
+
+template <class String, class StrList>  // StrList must be SequenceContainer
+String string_join(const StrList &string_list, const String &sep) {
+    static_assert(
+        is_same<typename StrList::value_type, String>::value,
+        "The seperator and strings in string list must be the same type!");
     static_assert(is_string<String>::value, "Parameter type must be string");
 
     using SizeType = typename String::size_type;
-    using CharT= typename String::value_type;
+    using CharT = typename String::value_type;
 
     SizeType total_length = 0;
     SizeType sep_size = sep.size();
 
-    if(string_list.size() == 0) {// the vectors are empty
+    if (string_list.size() == 0) {  // the vectors are empty
         return String{};
     }
 
-    for(auto &s: string_list){
+    for (auto &s : string_list) {
         total_length += s.size();
     }
 
     total_length += (string_list.size() - 1) * sep_size;
-    CharT * new_str = new CharT[total_length + 1]{0};
-    CharT * pos = new_str;
-    const CharT * sep_ptr = sep.c_str();
+    CharT *new_str = new CharT[total_length + 1]{0};
+    CharT *pos = new_str;
+    const CharT *sep_ptr = sep.c_str();
 
     // i + 1 not consider overflow here
     SizeType i = 0;
     for (; i + 1 < string_list.size(); i++) {
-       memcpy(pos, string_list[i].c_str(), string_list[i].size());
-       pos += string_list[i].size();
-       memcpy(pos, sep_ptr, sep_size);
-       pos += sep_size; 
+        memcpy(pos, string_list[i].c_str(), string_list[i].size());
+        pos += string_list[i].size();
+        memcpy(pos, sep_ptr, sep_size);
+        pos += sep_size;
     }
     // append_last
     memcpy(pos, string_list[i].c_str(), string_list[i].size());
 
     String ret{new_str};
-    delete [] new_str;
+    delete[] new_str;
 
     return ret;
 }
 
-template <class CharT, class StrList, class String = typename StrList::value_type> // accept when sep is cstyle string 
-String string_join(const StrList &string_list, const CharT * sep){
-    static_assert(is_same<typename String::value_type, CharT>::value, "The seperator char type and the char type in string list must be the same!");
-    String ret;
-    if(!sep){
-        // if sep null, should not feed to constructor to avoid UB
-        ret = string_join(string_list, String{});
-    }else{
-        ret = string_join(string_list, String{sep});
-    }
-    return ret;
+template <class CharT, class StrList,
+          class String =
+              typename StrList::value_type>  // accept when sep is cstyle string
+String string_join(const StrList &string_list, const CharT *sep) {
+    static_assert(is_same<typename String::value_type, CharT>::value,
+                  "The seperator char type and the char type in string list "
+                  "must be the same!");
+    return string_join(string_list, unify(sep));
 }
-
 
 _THALLIUM_END_NAMESPACE
 

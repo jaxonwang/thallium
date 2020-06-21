@@ -111,3 +111,30 @@ TEST(StringTest, StringJoin){
     ASSERT_EQ(ret2, wstring(L"0,1,2,3,4"));
 
 }
+
+TEST(StringTest, StringTrim){
+    using namespace thallium;
+    string s0{""};
+    ASSERT_EQ("", string_trim(s0));
+
+    ASSERT_EQ("", string_trim(" "));
+
+    ASSERT_EQ("123", string_trim(string{" 123"}));
+    ASSERT_EQ("123", string_trim(string{"123 "}));
+
+    ASSERT_EQ("123", string_trim("123  "));
+    ASSERT_EQ("123", string_trim("  123 "));
+    ASSERT_EQ("123", string_trim("123\t  "));
+    ASSERT_EQ("123", string_trim("  \n123 "));
+    ASSERT_EQ("123", string_trim("  \n\r123\t "));
+
+    ASSERT_EQ("123321", string_trim("123321", ""));
+    ASSERT_EQ("2332", string_trim("123321", "1"));
+    ASSERT_EQ("33", string_trim("123321", "21"));
+
+    ASSERT_EQ(L"123321", string_trim(L"123321", L""));
+    ASSERT_EQ(L"123", string_trim(L"  \n\r123\t "));
+    ASSERT_EQ(L"2332", string_trim(L"123321", L"1"));
+    ASSERT_EQ(L"33", string_trim(L"123321", L"21"));
+
+}

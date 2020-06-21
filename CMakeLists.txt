@@ -28,7 +28,7 @@ function(populate_unless_exist name)
 endfunction(populate_unless_exist)
 
 # boost // boost why are you so large?
-find_package(boost REQUIRED)
+find_package(Boost REQUIRED)
 include_directories("${Boost_INCLUDE_DIR}")
 
 # for this project

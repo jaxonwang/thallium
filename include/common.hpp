@@ -262,6 +262,36 @@ String string_join(const StrList &string_list, const CharT *sep) {
     return string_join(string_list, unify(sep));
 }
 
+template <template <class, class> class SeqContainer, class String,
+          class Allocator = std::allocator<String>>
+SeqContainer<String, Allocator> __string_split(const String &s,
+                                               const String &substr) {
+    SeqContainer<String, Allocator> splited{};
+    using size_type = typename String::size_type;
+    if (s.size() == 0 || substr.size() == 0) {
+        splited.push_back(s);
+        return splited;
+    }
+
+    size_type pre_pos = 0;
+    size_type found = 0;
+    while ((found = s.find(substr, pre_pos)) != String::npos) {
+        String tmp{s, pre_pos, found - pre_pos};
+        splited.push_back(move(tmp));
+        pre_pos = found + substr.size();
+    }
+    splited.push_back(String{s, pre_pos, s.size() - pre_pos});
+    return splited;
+}
+
+template <
+    template <class, class> class SeqContainer, class T1, class T2,
+    class Allocator = std::allocator<typename infer_string_type<T1>::type>,
+    class String = typename infer_string_type<T1>::type>
+SeqContainer<String, Allocator> string_split(const T1 &s, const T2 &substr) {
+    return __string_split<SeqContainer>(unify(s), unify(substr));
+}
+
 _THALLIUM_END_NAMESPACE
 
 #endif

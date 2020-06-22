@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <vector>
+#include <list>
 #include <string>
 
 #include "common.hpp"
@@ -138,3 +139,27 @@ TEST(StringTest, StringTrim){
     ASSERT_EQ(L"33", string_trim(L"123321", L"21"));
 
 }
+
+TEST(StringTest, StringSplit){
+    using namespace thallium;
+    ASSERT_EQ(vector<string>({"abc"}), string_split<vector>("abc", ""));
+    ASSERT_EQ(vector<string>({"abc"}), string_split<vector>("abc", "d"));
+    ASSERT_EQ(vector<string>({""}), string_split<vector>("", "d"));
+    ASSERT_EQ(vector<string>({""}), string_split<vector>("", ""));
+
+    ASSERT_EQ(vector<string>({"1", "2", "3", "4", "5"}), string_split<vector>("1 2 3 4 5", " "));
+    ASSERT_EQ(vector<string>({"", "2", "3", "4", ""}), string_split<vector>(" 2 3 4 ", " "));
+    ASSERT_EQ(vector<string>({"2", "", "4"}), string_split<vector>("2  4", " "));
+
+    ASSERT_EQ(vector<string>({"1", "41", "4"}), string_split<vector>("12341234", "23"));
+    ASSERT_EQ(vector<string>({"", "", ""}), string_split<vector>("12341234", "1234"));
+
+    ASSERT_EQ(list<string>({"1", "41", "4"}), string_split<list>("12341234", "23"));
+    ASSERT_EQ(list<string>({"", "", ""}), string_split<list>("12341234", "1234"));
+
+    ASSERT_EQ(list<wstring>({L"1", L"41", L"4"}), string_split<list>(L"12341234", L"23"));
+    ASSERT_EQ(list<wstring>({L"", L"", L""}), string_split<list>(L"12341234", L"1234"));
+
+    ASSERT_EQ(list<string>({"12", "34", "56", "78"}), string_split<list>("12__34__56__78", "__"));
+}
+

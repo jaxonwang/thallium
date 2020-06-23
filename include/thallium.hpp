@@ -128,7 +128,6 @@ class Coordinator {
   protected:
     Coordinator(){};
 
-  public:
     template <class MngT, class Ret, class... ArgTypes>
     static Execution::ExeId RemoteSubmit(
         Place &place, Ret(f)(ArgTypes...),
@@ -139,6 +138,8 @@ class Coordinator {
             MngT::get()->submitExecution(place, f_id, move(s_l));
         return id;
     }
+
+  public:
     // blocked submit
     template <class Ret, class... ArgTypes>
     static Execution::ExeId BlockedSubmit(

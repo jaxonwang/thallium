@@ -1,5 +1,10 @@
 #include "thallium.hpp"
 
+#include <cstdlib>
+
+#include "context.hpp"
+#include "network.hpp"
+
 using namespace std;
 
 _THALLIUM_BEGIN_NAMESPACE
@@ -91,6 +96,41 @@ Execution::ExeId BlockedExecManager::submitExecution(const Place &place,
 void init_statics() {
     BlockedExecManager::get();
     Execution::init_statics();
+}
+
+void stderr_and_quit(const char *msg) {
+    cerr << msg << endl;
+    exit(-1);
+}
+
+void stderr_and_quit(const string &msg) {
+    cerr << msg << endl;
+    exit(-1);
+}
+
+void thallium_init() {
+    // start server
+    Context ctx;
+    const char *env_coord_host = getenv(ENVNAME_COORD_HOST);
+    const char *env_coord_port = getenv(ENVNAME_COORD_PORT);
+    if (!env_coord_host) {
+        stderr_and_quit(
+            format("Environment varialble not set: {}", ENVNAME_COORD_HOST));
+    }
+    if (!valid_hostname(env_coord_host)) {
+        stderr_and_quit(format("Invalid coordinator hostname: {} = {}",
+                               ENVNAME_COORD_HOST, env_coord_host));
+    }
+    ctx.coordinator_host = env_coord_host;
+    if (!env_coord_port) {
+        stderr_and_quit(
+            format("Environment varialble not set: {}", ENVNAME_COORD_PORT));
+    }
+
+    if (-1 == (ctx.coordinator_port = port_to_int(env_coord_host))) {
+        stderr_and_quit(format("Invalid coordinator port: {} = {}",
+                               ENVNAME_COORD_PORT, env_coord_port));
+    }
 }
 
 _THALLIUM_END_NAMESPACE

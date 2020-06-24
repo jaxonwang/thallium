@@ -292,6 +292,14 @@ SeqContainer<String, Allocator> string_split(const T1 &s, const T2 &substr) {
     return __string_split<SeqContainer>(unify(s), unify(substr));
 }
 
+inline bool is_digit(const char c) { return c >= '0' && c <= '9'; }
+
+inline bool is_lowercase(const char c) { return c >= 'a' && c <= 'z'; }
+
+inline bool is_uppercase(const char c) { return c >= 'A' && c <= 'Z'; }
+
+inline bool is_letter(const char c) { return is_lowercase(c) || is_uppercase(c); }
+
 _THALLIUM_END_NAMESPACE
 
 #endif

@@ -163,3 +163,38 @@ TEST(StringTest, StringSplit){
     ASSERT_EQ(list<string>({"12", "34", "56", "78"}), string_split<list>("12__34__56__78", "__"));
 }
 
+TEST(StringTest, CharTest){
+
+    // I ate too much
+    using namespace thallium;
+    string lower{"abcdefghijklmnopqrstuvwxyz"};
+    string upper{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"};
+    string others{"!@#$%^&*()_+|~}{:\"?><\\=-`"};
+    string digits{"1234567890"};
+
+    for (auto && c: lower) {
+       ASSERT_TRUE(is_lowercase(c));
+       ASSERT_TRUE(is_letter(c));
+       ASSERT_FALSE(is_digit(c));
+       ASSERT_FALSE(is_uppercase(c));
+    }
+    for (auto && c: upper) {
+       ASSERT_FALSE(is_lowercase(c));
+       ASSERT_TRUE(is_letter(c));
+       ASSERT_FALSE(is_digit(c));
+       ASSERT_TRUE(is_uppercase(c));
+    }
+    for (auto && c: digits) {
+       ASSERT_FALSE(is_lowercase(c));
+       ASSERT_FALSE(is_letter(c));
+       ASSERT_TRUE(is_digit(c));
+       ASSERT_FALSE(is_uppercase(c));
+    }
+    for (auto && c: others) {
+       ASSERT_FALSE(is_lowercase(c));
+       ASSERT_FALSE(is_letter(c));
+       ASSERT_FALSE(is_digit(c));
+       ASSERT_FALSE(is_uppercase(c));
+    }
+}
+

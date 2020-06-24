@@ -209,6 +209,8 @@ _THALLIUM_END_NAMESPACE
 //     return 0;
 // }
 
+void thallium_init();
+
 #define TI_MAIN()                                                  \
     int main(int argc, const char *argv[]) {                       \
         thallium::init_statics();                                  \

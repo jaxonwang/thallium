@@ -9,11 +9,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "Type of build")
+SET(ISDEBUG (${CMAKE_BUILD_TYPE} MATCHES Debug))
 
+# enable lto
+include(CheckIPOSupported)
+cmake_policy(SET CMP0069 NEW)
+check_ipo_supported(RESULT ipo_enabled OUTPUT output)
+
+# enable warning
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic")
 
-set(CMAKE_BUILD_TYPE Debug)
+# enable santinizer
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 
 include(FetchContent)
 
@@ -31,6 +39,8 @@ endfunction(populate_unless_exist)
 find_package(Boost REQUIRED)
 include_directories("${Boost_INCLUDE_DIR}")
 
+set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})
+
 # for this project
 
 file(GLOB src_files
@@ -38,6 +48,10 @@ file(GLOB src_files
     )
 add_library(thallium STATIC ${src_files})
 add_library(thallium_shared SHARED ${src_files})
+if( NOT ${ISDEBUG} AND ipo_enabled )
+    message(STATUS "IPO / LTO enabled")
+    set_property(TARGET thallium_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 add_library(thallium_header INTERFACE)
 target_compile_definitions(thallium_header
     INTERFACE LIBRARY_HEADER_ONLY

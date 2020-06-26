@@ -32,7 +32,7 @@ TEST(UtilsTest, ValidHostname) {
 
 TEST(UtilsTest, ValidPort) {
     ASSERT_EQ(1235, port_to_int("1235"));
-    ASSERT_EQ(1235, port_to_int(nullptr));
+    ASSERT_EQ(-1, port_to_int(nullptr));
     ASSERT_EQ(1, port_to_int("1"));
     ASSERT_EQ(65535, port_to_int("65535"));
     ASSERT_EQ(-1, port_to_int("0"));

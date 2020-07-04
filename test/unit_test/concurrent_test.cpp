@@ -7,13 +7,18 @@
 
 #include "test.hpp"
 
-TEST(ChannelTest, Basic) {
-    using namespace thallium;
+using namespace thallium;
+
+template <class T>
+class LockFreeChannel4096 : public LockFreeChannel<T, 4096> {};
+
+template <template <class> class C>
+void run_test_order() {
     using namespace std;
     const int arr_size = 7;
     int a[arr_size] = {7, 6, 5, 4, 3, 2, 1};
 
-    Channel<int> c;
+    C<int> c;
     for (auto &e : a) {
         c.send(e);
     }
@@ -23,7 +28,7 @@ TEST(ChannelTest, Basic) {
         ASSERT_EQ(a[i], r);
     }
 
-    Channel<string> c1;
+    C<string> c1;
     vector<string> str_v{"1dsaf", "harsdg", "hello", "yktrsl", "asdfppp"};
     auto str_v1 = str_v;
     for (auto &s : str_v) {
@@ -46,16 +51,29 @@ TEST(ChannelTest, Basic) {
         ASSERT_EQ(a, str_v1[i]);
         ASSERT_EQ("", str_v[i]);
     }
+
+    C<unique_ptr<int>> ptr_c;
+    for (int i = 0; i < 10; i++) {
+        ptr_c.send(unique_ptr<int>{new int (i)});
+    }
+    for (int i = 0; i < 10; i++) {
+        unique_ptr<int> tmp;
+        ptr_c.receive(tmp);
+        ASSERT_EQ(*tmp, i);
+    }
 }
 
-TEST(ChannelTest, concurrent) {
-    using namespace thallium;
-    using namespace std;
-    Channel<string> c;
-    Channel<string> c1;
-    Channel<string> c2;
+TEST(ChannelTest, TestOrder) {
+    run_test_order<BasicLockQueue>();
+    run_test_order<SenderSideLockQueue>();
+    run_test_order<LockFreeChannel4096>();
+}
 
-    chrono::milliseconds wait_time{100};
+template <template <class> class C>
+void run_test_recevie_for() {
+    C<string> c;
+    C<string> c1;
+    chrono::milliseconds wait_time{1};
     int t1_ret = 1234;
     thread t1{[&]() {
         string tmp;
@@ -69,25 +87,137 @@ TEST(ChannelTest, concurrent) {
         bool r = c1.receive_for(tmp, chrono::milliseconds{500});
         if (r) t2_s = tmp;
     }};
+    // only send to c1
     thread t3{[&]() { c1.send(string{"just test"}); }};
 
-    auto fib = [&](int n)->int{ //not correct just for test
-        Channel<int> f_c1;
-        Channel<int> f_c2;
+    t1.join();
+    t2.join();
+    t3.join();
+    ASSERT_EQ(t1_ret, 4321);
+    ASSERT_EQ(t2_s, "just test");
+}
+
+TEST(ChannelTest, ReceiveFor) {
+    run_test_recevie_for<BasicLockQueue>();
+    run_test_recevie_for<SenderSideLockQueue>();
+}
+template <template <class> class C>
+void run_test_concurrent_single_rw() {
+    auto sum = [&](int n) -> int {  // not correct just for test
+        C<int> c;
+        long long ret = 0;
+        thread t1{[=, &c] {
+            for (int j = 0; j < n; j++) {
+                c.send(j);
+            }
+        }};
+        thread t_sum{[&] {
+            long long s = 0;
+            for (int i = 0; i < n; i++) {
+                int tmp;
+                c.receive(tmp);
+                s += tmp;
+            }
+            ret = s;
+        }};
+        t1.join();
+        t_sum.join();
+        return ret;
+    };
+
+    ASSERT_EQ(sum(100000), 704982704);
+}
+
+template <template <class> class C>
+void run_test_concurrent_multi_write() {
+    // test concurrent access
+    auto sum = [&](int n) -> int {  // not correct just for test
+        n++;
+        C<int> c;
+        int ret = 0;
+        vector<thread> ts;
+        for (int i = 0; i < n; i++) {
+            ts.push_back(thread{[=, &c] {
+                this_thread::sleep_for(chrono::milliseconds(10));
+                for (int j = 0; j < 100; j++) {
+                    c.send(i);
+                }
+            }});
+        }
+        thread t_sum{[&] {
+            long long s = 0;
+            for (int i = 0; i < n * 100; i++) {
+                int tmp;
+                c.receive(tmp);
+                s += tmp;
+            }
+            ret = s;
+        }};
+        t_sum.join();
+        for (auto &t : ts) {
+            t.join();
+        }
+        return ret;
+    };
+
+    ASSERT_EQ(sum(100), 505000);
+}
+
+TEST(ChannelTest, BaseLine) {
+    BasicLockQueue<int> c;
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+            c.send(i);
+        }
+    }
+    int s = 0;
+    for (int i = 0; i < 100 * 100; i++) {
+        int tmp;
+        c.receive(tmp);
+        s += tmp;
+    }
+}
+
+TEST(ChannelTest, LockFreeChannelSingleRW) {
+    run_test_concurrent_single_rw<LockFreeChannel4096>();
+}
+TEST(ChannelTest, BasicChannelSingleRW) {
+    run_test_concurrent_single_rw<BasicLockQueue>();
+}
+TEST(ChannelTest, SenderSideLockQueueSingleRW) {
+    run_test_concurrent_single_rw<SenderSideLockQueue>();
+}
+
+TEST(ChannelTest, BasicChannelConcurrentWrite) {
+    run_test_concurrent_multi_write<BasicLockQueue>();
+}
+
+TEST(ChannelTest, SenderSideLockQueueConcurrentWrite) {
+    run_test_concurrent_multi_write<SenderSideLockQueue>();
+}
+
+template <template <class> class C>
+void run_senario() {
+    using namespace std;
+    C<string> c2;
+
+    auto fib = [&](int n) -> int {  // not correct just for test
+        C<int> f_c1;
+        C<int> f_c2;
         f_c1.send(1);
-        thread f1{[&]{
+        thread f1{[&] {
             int ownstate = 0;
             int r;
-            for (int i = 0; i < n/2; i++) {
+            for (int i = 0; i < n / 2; i++) {
                 f_c1.receive(r);
                 ownstate += r;
                 f_c2.send(ownstate);
             }
         }};
-        thread f2{[&]{
+        thread f2{[&] {
             int ownstate = 0;
             int r;
-            for (int i = 0; i < n/2; i++) {
+            for (int i = 0; i < n / 2; i++) {
                 f_c2.receive(r);
                 ownstate += r;
                 f_c1.send(ownstate);
@@ -100,40 +230,13 @@ TEST(ChannelTest, concurrent) {
         return ret;
     };
 
-    auto sum= [&](int n)->int{ //not correct just for test
-        n++;
-        Channel<int> c;
-        int ret = 0;
-        vector<thread> ts;
-        for (int i = 0; i < n; i++) {
-           ts.push_back(thread{[=, &c]{
-                   this_thread::sleep_for(chrono::milliseconds(10));
-                   c.send(i);}}
-                   );
-        }
-        thread t_sum{[&]{
-            int s= 0;
-            for (int i = 0; i < n; i++) {
-               int tmp; 
-               c.receive(tmp);
-               s+=tmp;
-            }
-            ret = s;
-        }};
-        t_sum.join();
-        for (auto &t: ts) {
-           t.join(); 
-        }
-        return ret;
-    };
-
-    t1.join();
-    t2.join();
-    t3.join();
-    ASSERT_EQ(t1_ret, 4321);
-    ASSERT_EQ(t2_s, "just test");
     ASSERT_EQ(fib(4), 3);
     ASSERT_EQ(fib(14), 377);
     ASSERT_EQ(fib(40), 102334155);
-    ASSERT_EQ(sum(100), 5050);
+}
+
+TEST(ChannelTest, Senario) {
+    run_senario<BasicLockQueue>();
+    run_senario<LockFreeChannel4096>();
+    run_senario<SenderSideLockQueue>();
 }

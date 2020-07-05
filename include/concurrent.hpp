@@ -68,6 +68,14 @@ class BasicLockQueue {  // multi producers multi consumers
         msgq.pop();
     }
 
+    bool try_receive(T &t){
+        std::lock_guard<std::mutex> lock{q_mux};
+        if(msgq.empty())
+            return false;
+        move_or_copy(t, msgq.front());
+        msgq.pop();
+    }
+
     template <class Rep, class Period>
     bool receive_for(T &t, const std::chrono::duration<Rep, Period> &rel_time) {
         std::unique_lock<std::mutex> lk(q_mux);
@@ -179,6 +187,14 @@ class SenderSideLockQueue {  // senario: logging, one active
                 out_queue.swap(in_queue);
             }
         }
+    }
+
+    bool try_receive(T &t){
+        if(out_queue.size() == 0)
+            return false;
+        move_or_copy(t, out_queue.front());
+        out_queue.pop();
+        return true;
     }
 
     template <class Rep, class Period>

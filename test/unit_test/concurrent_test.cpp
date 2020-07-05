@@ -54,7 +54,7 @@ void run_test_order() {
 
     C<unique_ptr<int>> ptr_c;
     for (int i = 0; i < 10; i++) {
-        ptr_c.send(unique_ptr<int>{new int (i)});
+        ptr_c.send(unique_ptr<int>{new int(i)});
     }
     for (int i = 0; i < 10; i++) {
         unique_ptr<int> tmp;
@@ -62,11 +62,98 @@ void run_test_order() {
         ASSERT_EQ(*tmp, i);
     }
 }
-
 TEST(ChannelTest, TestOrder) {
     run_test_order<BasicLockQueue>();
     run_test_order<SenderSideLockQueue>();
     run_test_order<LockFreeChannel4096>();
+}
+
+template <template <class> class C>
+void run_test_concurrent_order() {
+    // test concurrent order
+    //
+    C<int> c;
+    const int vec_size = 128;
+    const int thread_num = 10;
+    vector<thread> ts(thread_num);
+    vector<int> max_receved(
+        thread_num, -1);  // to ensure order, the max received from ith thread;
+    for (int i = 0; i < thread_num; i++) {
+        ts.push_back(thread{[&c, i]() {
+            for (int j = 0; j < vec_size; j++) {
+                c.send(i * 128 + j);
+            }
+        }});
+    }
+    for (int i = 0; i < vec_size * thread_num; i++) {
+        int r;
+        c.receive(r);
+        int k = r / 128;
+        int v = r % 128;
+        ASSERT_TRUE(max_receved[k] < v);
+        max_receved[k] = v;
+    }
+    for (int i = 0; i < thread_num; i++) {
+        ts[i].join();
+    }
+}
+
+TEST(ChannelTest, ConcurrentOrder) {
+    run_test_order<BasicLockQueue>();
+    run_test_order<SenderSideLockQueue>();
+}
+
+TEST(ChannelTest, SingleChannelConcurrentOrder) {
+    LockFreeChannel4096<int> c;
+    const int arr_size = 128;
+    thread t{[&c]() {
+        for (int j = 0; j < arr_size; j++) {
+            c.send(j);
+        }
+    }};
+    int min_received = -1;
+    for (int i = 0; i < arr_size; i++) {
+        int r;
+        c.receive(r);
+        ASSERT_TRUE(min_received < r);
+        min_received = r;
+    }
+    t.join();
+}
+
+template <template <class> class C>
+void run_try_receive() {
+    const int arr_size = 7;
+    int a[arr_size] = {7, 6, 5, 4, 3, 2, 1};
+
+    C<int> c;
+    for (auto &e : a) {
+        c.send(e);
+    }
+
+    vector<thread> ts(arr_size);
+    for (int i = 0; i < arr_size; i++) {
+        ts.push_back(thread{[&c, i]() { c.send(i); }});
+    }
+    for (int i = 0; i < arr_size; i++) {
+        int r;
+        ASSERT_TRUE(c.try_receive(r));
+    }
+    for (int i = 0; i < arr_size; i++) {
+        ts[i].join();
+    }
+    for (int i = 0; i < 7; i++) {
+        int r;
+        ASSERT_FALSE(c.try_receive(r));
+    }
+    // send again to see try_receive will success;
+    for (auto &e : a) {
+        c.send(e);
+    }
+    for (int i = 0; i < arr_size; i++) {
+        int r;
+        ASSERT_TRUE(c.try_receive(r));
+    }
 }
 
 template <template <class> class C>

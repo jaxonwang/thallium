@@ -8,32 +8,32 @@
 #include "common.hpp"
 _THALLIUM_BEGIN_NAMESPACE
 
-typedef string Buffer;
-using Buffers = vector<string>;
-using BuffersPtr = unique_ptr<Buffers>;
+typedef std::string Buffer;
+using Buffers = std::vector<std::string>;
+using BuffersPtr = std::unique_ptr<Buffers>;
 
 template <typename T>
-string my_serialized_method(T &a) { // TODO: user implement serialization api
+std::string my_serialized_method(T &a) { // TODO: user implement serialization api
   return to_string(a);
 }
 
-string my_serialized_method(string &a);
+std::string my_serialized_method(std::string &a);
 
 namespace Serializer {
 
-template <class T> string serialize(T t) {
+template <class T> std::string serialize(T t) {
   return my_serialized_method(t); // TODO
 }
 
 template <class... ArgTypes> BuffersPtr serializeList(const ArgTypes&... args) {
   return BuffersPtr{new Buffers{my_serialized_method(args)...}};
 }
-template <class T> T deSerialize(string s) { return static_cast<T>(s); }
-template <> int deSerialize<int>(string s);
-template <> double deSerialize<double>(string s);
-template <> long double deSerialize<long double>(string s);
-template <> float deSerialize<float>(string s); 
-template <> char deSerialize<char>(string s);
+template <class T> T deSerialize(std::string s) { return static_cast<T>(s); }
+template <> int deSerialize<int>(std::string s);
+template <> double deSerialize<double>(std::string s);
+template <> long double deSerialize<long double>(std::string s);
+template <> float deSerialize<float>(std::string s); 
+template <> char deSerialize<char>(std::string s);
 } // namespace Serializer
 
 _THALLIUM_END_NAMESPACE

@@ -16,6 +16,8 @@ FuncId FuncIdGen::getIdfromMangled(const string &s) {
     return i;
 }
 
+const string arity_error_str = "Function arguments arity doesnt match: given {}, need {}";
+
 void FuncManager::addFunc(const FuncId &f_id,
                           const shared_ptr<FunctionObjectBase> &f_ptr) {
     if (f_table.count(f_id) != 0)

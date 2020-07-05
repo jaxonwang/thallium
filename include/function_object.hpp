@@ -14,18 +14,16 @@
 #include "serialize.hpp"
 #include "utils.hpp"
 
-using namespace std;
-
 _THALLIUM_BEGIN_NAMESPACE
 
-using Buffers = vector<string>;
+using Buffers = std::vector<std::string>;
 typedef unsigned int FuncId;
 
 class BoxedValue {  // move value to stack TODO need optimization to reduce
                     // copy. Need to consider how the serialization is done
                     // TODO test for all possible type
                     // TODO type consistancy check
-    shared_ptr<void> v_ptr;
+    std::shared_ptr<void> v_ptr;
 
   protected:
     BoxedValue() = delete;
@@ -35,49 +33,50 @@ class BoxedValue {  // move value to stack TODO need optimization to reduce
     BoxedValue(BoxedValue &&bv) = default;
 
     template <class T,
-              class = typename enable_if<!is_pointer<T>::value &&
-                                         is_copy_constructible<T>::value>::type>
+              class = typename std::enable_if<
+                  !std::is_pointer<T>::value &&
+                  std::is_copy_constructible<T>::value>::type>
     explicit BoxedValue(
         const T &t) {  // copy to heap , this is very dangerous to match T ...
-        auto sp = make_shared<T>(t);
+        auto sp = std::make_shared<T>(t);
         v_ptr = std::static_pointer_cast<void>(sp);
     }
     template <
         class T,
-        class = typename enable_if<!is_lvalue_reference<T>::value>::
+        class = typename std::enable_if<!std::is_lvalue_reference<T>::value>::
             type>  // must specify or it will be forwarding reference
                    // why is !is_lvalue_reference, see
                    // https://stackoverflow.com/questions/53758796/why-does-stdis-rvalue-reference-not-do-what-it-is-advertised-to-do
     BoxedValue(T &&t) {
-        auto sp = make_shared<T>(forward<T>(t));
+        auto sp = std::make_shared<T>(std::forward<T>(t));
         v_ptr = std::static_pointer_cast<void>(sp);
     }
 
     template <class T>
-    BoxedValue(unique_ptr<T> &&p) {
-        shared_ptr<T> sp{move(p)};
+    BoxedValue(std::unique_ptr<T> &&p) {
+        std::shared_ptr<T> sp{move(p)};
         v_ptr = std::static_pointer_cast<void>(sp);
     }
 
     template <class T>
-    BoxedValue(shared_ptr<T> &sp) {
+    BoxedValue(std::shared_ptr<T> &sp) {
         v_ptr = std::static_pointer_cast<void>(sp);
     }
     template <class T, class T_d = typename std::remove_reference<T>::type>
-    static shared_ptr<T_d> boxCast(BoxedValue &b) {
+    static std::shared_ptr<T_d> boxCast(BoxedValue &b) {
         return std::static_pointer_cast<T_d>(b.v_ptr);
     }
 };
 
 struct FuncIdGen {  // TODO need thread safe?
     static FuncId current;
-    static unordered_map<string, FuncId> id_lookup;
+    static std::unordered_map<std::string, FuncId> id_lookup;
     static FuncId genId() { return current++; }
-    static FuncId getIdfromMangled(const string &s);
+    static FuncId getIdfromMangled(const std::string &s);
 };
 
 template <class T>
-const string get_mangled(const T t) {
+const std::string get_mangled(const T t) {
     return typeid(t).name();
 }
 
@@ -87,7 +86,7 @@ FuncId function_id(Rt(f)(Argtypes...)) {
 }
 
 template <class Rt, class... Argtypes>
-FuncId function_id(function<Rt(Argtypes...)> &f) {
+FuncId function_id(std::function<Rt(Argtypes...)> &f) {
     return FuncIdGen::getIdfromMangled(get_mangled(f));
 }
 
@@ -101,9 +100,9 @@ class ParameterError : public std::range_error {
 class FunctionObjectBase {
   public:
     // virtual BoxedValue operator()(BoxedValue args...) =0;
-    virtual BoxedValue operator()(vector<BoxedValue> &args) = 0;
+    virtual BoxedValue operator()(std::vector<BoxedValue> &args) = 0;
 
-    virtual vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
+    virtual std::vector<BoxedValue> deSerializeArguments(const Buffers &) = 0;
 
   protected:
     virtual ~FunctionObjectBase() {}
@@ -112,27 +111,29 @@ class FunctionObjectBase {
 template <class T>
 class FunctionSingnature;
 
+extern const std::string arity_error_str;
+
 template <class Ret, class... ArgTypes>
 class FunctionSingnature<Ret(ArgTypes...)> {
   public:
-    static vector<BoxedValue> deSerializeArguments(const Buffers &buffers) {
-        auto bvs = vector<BoxedValue>{};
+    static std::vector<BoxedValue> deSerializeArguments(
+        const Buffers &buffers) {
+        auto bvs = std::vector<BoxedValue>{};
         _deSerializeArguments<0, ArgTypes...>(bvs, buffers);
         return bvs;
     }
 
-    static function<Ret()> bindArguments(function<Ret(ArgTypes...)> &f,
-                                         vector<BoxedValue> &bvs) {
+    static std::function<Ret()> bindArguments(
+        std::function<Ret(ArgTypes...)> &f, std::vector<BoxedValue> &bvs) {
         return _bindArguments<0>(f, bvs);
     }
 
   private:
     template <int index, class Arg1, class... ArgTs>
-    static void _deSerializeArguments(vector<BoxedValue> &bvs,
+    static void _deSerializeArguments(std::vector<BoxedValue> &bvs,
                                       const Buffers &buffers) {
         if (index + 1 > buffers.size()) {
-            throw thallium::exception::ParameterError(format(
-                "Function arguments arity doesnt match: given {}, need {}",
+            throw thallium::exception::ParameterError(format(arity_error_str,
                 buffers.size(), 1 + index + sizeof...(ArgTs)));
         }
         bvs.push_back(
@@ -140,38 +141,35 @@ class FunctionSingnature<Ret(ArgTypes...)> {
         _deSerializeArguments<index + 1, ArgTs...>(bvs, buffers);
     }
     template <int index>
-    static void _deSerializeArguments(vector<BoxedValue> &bvs,
+    static void _deSerializeArguments(std::vector<BoxedValue> &bvs,
                                       const Buffers &buffers) {
         if (bvs.size() != buffers.size()) {
-            throw thallium::exception::ParameterError(format(
-                "Function arguments arity doesnt match: given {}, need {}",
+            throw thallium::exception::ParameterError(format(arity_error_str,
                 buffers.size(), index));
         }
     }
 
     template <int index, class Arg1, class... ArgTs>
-    static function<Ret()> _bindArguments(function<Ret(Arg1, ArgTs...)> &f,
-                                          vector<BoxedValue> &bvs) {
+    static std::function<Ret()> _bindArguments(
+        std::function<Ret(Arg1, ArgTs...)> &f, std::vector<BoxedValue> &bvs) {
         if (index == bvs.size()) {
-            auto e = thallium::exception::ParameterError(format(
-                "Function arguments arity doesnt match: given {}, need {}",
+            auto e = thallium::exception::ParameterError(format(arity_error_str,
                 bvs.size(), 1 + index + sizeof...(ArgTs)));
             TI_RAISE(e);
         }
         auto a1 = BoxedValue::boxCast<Arg1>(bvs[index]);
 
-        function<Ret(ArgTs...)> _f = [a1, f](ArgTs &&... args) {
-            return f(static_cast<Arg1>(*a1), forward<ArgTs>(args)...);
+        std::function<Ret(ArgTs...)> _f = [a1, f](ArgTs &&... args) {
+            return f(static_cast<Arg1>(*a1), std::forward<ArgTs>(args)...);
         };
         return _bindArguments<index + 1>(_f, bvs);
     }
 
     template <int index>
-    static function<Ret()> _bindArguments(function<Ret()> &f,
-                                          vector<BoxedValue> &bvs) {
+    static std::function<Ret()> _bindArguments(std::function<Ret()> &f,
+                                               std::vector<BoxedValue> &bvs) {
         if (index != bvs.size()) {
-            auto e = thallium::exception::ParameterError(format(
-                "Function arguments arity doesnt match: given {}, need {}",
+            auto e = thallium::exception::ParameterError(format(arity_error_str,
                 bvs.size(), index));
             TI_RAISE(e);
         }
@@ -185,20 +183,20 @@ class FunctionObjectImpl;
 template <class Ret, class... ArgTypes>
 class FunctionObjectImpl<Ret(ArgTypes...)> : public FunctionObjectBase {
     using FuncSignature = FunctionSingnature<Ret(ArgTypes...)>;
-    function<Ret(ArgTypes...)> f;
+    std::function<Ret(ArgTypes...)> f;
 
   public:
     FunctionObjectImpl(Ret(func)(ArgTypes...))
         : FunctionObjectBase(), f(func) {}
 
-    FunctionObjectImpl(const function<Ret(ArgTypes...)> &func)
+    FunctionObjectImpl(const std::function<Ret(ArgTypes...)> &func)
         : FunctionObjectBase(), f(func) {}
 
-    vector<BoxedValue> deSerializeArguments(const Buffers &bs) override {
+    std::vector<BoxedValue> deSerializeArguments(const Buffers &bs) override {
         return FuncSignature::deSerializeArguments(bs);
     }
 
-    BoxedValue operator()(vector<BoxedValue> &args) override {
+    BoxedValue operator()(std::vector<BoxedValue> &args) override {
         auto f_bd = FuncSignature::bindArguments(f, args);
         return f_bd();
     }
@@ -206,7 +204,7 @@ class FunctionObjectImpl<Ret(ArgTypes...)> : public FunctionObjectBase {
 
 template <class Ret, class... ArgTypes>
 class VoidFunctionObject : public FunctionObjectImpl<Ret(ArgTypes...)> {
-    static_assert(is_same<Ret, void>::value,
+    static_assert(std::is_same<Ret, void>::value,
                   "Void function's return type must be void!");
 };
 
@@ -220,7 +218,7 @@ FunctionObjectImpl<Ret(ArgTypes...)> make_function_object(
 }
 template <class Ret, class... ArgTypes>
 FunctionObjectImpl<Ret(ArgTypes...)> make_function_object(
-    const function<Ret(ArgTypes...)> &func) {
+    const std::function<Ret(ArgTypes...)> &func) {
     return FunctionObjectImpl<Ret(ArgTypes...)>(func);
 }
 template <class... ArgTypes>
@@ -230,57 +228,57 @@ FunctionObjectImpl<void(ArgTypes...)> make_void_function_object(
 }
 template <class... ArgTypes>
 FunctionObjectImpl<void(ArgTypes...)> make_void_function_object(
-    const function<void(ArgTypes...)> &func) {
+    const std::function<void(ArgTypes...)> &func) {
     return VoidFunctionObject<void(ArgTypes...)>(func);
 }
 
 class FuncManager : public Singleton<FuncManager> {
     friend class Singleton<FuncManager>;
-    unordered_map<FuncId, shared_ptr<FunctionObjectBase>> f_table;
+    std::unordered_map<FuncId, std::shared_ptr<FunctionObjectBase>> f_table;
 
   public:
     FuncManager() {}
 
     void addFunc(const FuncId &f_id,
-                 const shared_ptr<FunctionObjectBase> &f_ptr);
+                 const std::shared_ptr<FunctionObjectBase> &f_ptr);
 
-    shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id);
+    std::shared_ptr<FunctionObjectBase> getFuncObj(const FuncId &f_id);
 };
 
 template <class Ret, class... ArgTypes>
 void register_func(Ret(func)(
     ArgTypes...)) {  // redundant codes, refectoring after future changes.
-    auto _p = make_shared<FunctionObject<Ret, ArgTypes...>>(func);
-    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto _p = std::make_shared<FunctionObject<Ret, ArgTypes...>>(func);
+    auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
 }
 
 template <class Ret, class... ArgTypes>
-void register_func(function<Ret(ArgTypes...)> &func) {
-    auto _p = make_shared<FunctionObject<Ret, ArgTypes...>>(func);
-    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+void register_func(std::function<Ret(ArgTypes...)> &func) {
+    auto _p = std::make_shared<FunctionObject<Ret, ArgTypes...>>(func);
+    auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
 }
 
 template <class... ArgTypes>
 void register_void_func(void(func)(ArgTypes...)) {
-    auto _p = make_shared<VoidFunctionObject<ArgTypes...>>(func);
-    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+    auto _p = std::make_shared<VoidFunctionObject<ArgTypes...>>(func);
+    auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
 }
 
 template <class... ArgTypes>
-void register_void_func(function<void(ArgTypes...)> &func) {
-    auto _p = make_shared<VoidFunctionObject<ArgTypes...>>(func);
-    auto p = dynamic_pointer_cast<FunctionObjectBase>(_p);
+void register_void_func(std::function<void(ArgTypes...)> &func) {
+    auto _p = std::make_shared<VoidFunctionObject<ArgTypes...>>(func);
+    auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
     FuncManager::get()->addFunc(f_id, p);
 }
 
-shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id);
+std::shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id);
 
 _THALLIUM_END_NAMESPACE
 

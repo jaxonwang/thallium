@@ -15,40 +15,38 @@
 
 #include "exception.hpp"
 
-using namespace std;
-
 _THALLIUM_BEGIN_NAMESPACE
 
 namespace ti_exception {
-class format_error : public runtime_error {
+class format_error : public std::runtime_error {
   public:
-    explicit format_error(const string &what_arg) : runtime_error(what_arg) {}
+    explicit format_error(const std::string &what_arg) : std::runtime_error(what_arg) {}
 };
 }  // namespace ti_exception
 
-inline void __raise_left_brace_unmatch(const string &fmt) {
+inline void __raise_left_brace_unmatch(const std::string &fmt) {
     TI_RAISE(ti_exception::format_error("Expecting \'{\' in the brace pair: " +
                                         fmt));
 }
-inline void __raise_right_brace_unmatch(const string &fmt) {
+inline void __raise_right_brace_unmatch(const std::string &fmt) {
     TI_RAISE(ti_exception::format_error("Expecting \'}\' in the brace pair: " +
                                         fmt));
 }
 
 template <class T>
 inline void __raise_too_many_args(T &t) {
-    stringstream tss{"Too many argumetns given: "};
+    std::stringstream tss{"Too many argumetns given: "};
     tss << t;
     TI_RAISE(ti_exception::format_error(tss.str()));
 }
 
-void _format(stringstream &ss, const string &fmt, unsigned long pos);
+void _format(std::stringstream &ss, const std::string &fmt, unsigned long pos);
 
 template <class T,
-          class = decltype(declval<ostream &>()
-                           << declval<T>()),  // ensure << op exist
+          class = decltype(std::declval<std::ostream &>()
+                           << std::declval<T>()),  // ensure << op exist
           class... Args>
-inline void _format(stringstream &ss, const string &fmt, unsigned long pos,
+inline void _format(std::stringstream &ss, const std::string &fmt, unsigned long pos,
                     const T t, const Args... args) {
     auto size = fmt.size();
     for (; pos < size; pos++) {
@@ -88,8 +86,8 @@ outloop:
 }
 
 template <class... Args>
-inline string format(const string &fmt, const Args &... args) {
-    stringstream ss;
+inline std::string format(const std::string &fmt, const Args &... args) {
+    std::stringstream ss;
     _format(ss, fmt, 0, args...);
     return ss.str();
 }
@@ -98,21 +96,21 @@ template <class>
 struct __is_string : std::false_type {};
 
 template <class CharT, class Trait, class Allocator>
-struct __is_string<basic_string<CharT, Trait, Allocator>> : std::true_type {};
+struct __is_string<std::basic_string<CharT, Trait, Allocator>> : std::true_type {};
 
 template <class T>
 struct is_string : __is_string<typename std::remove_cv<T>::type> {};
 
 template <class String,
-          typename enable_if<!is_same<String, String>::value, int>::type = 0>
+          typename std::enable_if<!std::is_same<String, String>::value, int>::type = 0>
 String *get_default_cutset() {
-    static_assert(!is_same<String, String>::value,
+    static_assert(!std::is_same<String, String>::value,
                   "No default cutset provided. Please specify cutset for trim "
                   "explicitly.");
 }
 
 template <class String,
-          typename enable_if<is_same<typename String::value_type, char>::value,
+          typename std::enable_if<std::is_same<typename String::value_type, char>::value,
                              int>::type = 0>
 const String *get_default_cutset() {
     static String _s;
@@ -122,7 +120,7 @@ const String *get_default_cutset() {
 
 template <
     class String,
-    typename enable_if<is_same<typename String::value_type, wchar_t>::value,
+    typename std::enable_if<std::is_same<typename String::value_type, wchar_t>::value,
                        int>::type = 0>
 const String *get_default_cutset() {
     static String _s;
@@ -164,17 +162,17 @@ void string_trim_modified(String &s) {
 // T type is either pointer to CharT or basic_string<CharT>
 template <class T>
 struct __infer_string_type {
-    static_assert(!is_same<T, T>::value, "disable general template");
+    static_assert(!std::is_same<T, T>::value, "disable general template");
 };
 
 template <class T>
 struct __infer_string_type<T *> {
-    using type = basic_string<typename std::remove_cv<T>::type>;
+    using type = std::basic_string<typename std::remove_cv<T>::type>;
 };
 
 template <class CharT>
-struct __infer_string_type<basic_string<CharT>> {
-    using type = basic_string<CharT>;
+struct __infer_string_type<std::basic_string<CharT>> {
+    using type = std::basic_string<CharT>;
 };
 
 template <class T>
@@ -183,12 +181,12 @@ struct infer_string_type
           // remove_cv<const char *> == const char *
           typename std::decay<typename std::remove_cv<T>::type>::type> {};
 
-template <class T, typename enable_if<is_string<T>::value, int>::type = 0>
+template <class T, typename std::enable_if<is_string<T>::value, int>::type = 0>
 T unify(T &s) {
     return s;
 }
 
-template <class T, typename enable_if<std::is_pointer<T>::value, int>::type = 0,
+template <class T, typename std::enable_if<std::is_pointer<T>::value, int>::type = 0,
           class String = typename infer_string_type<T>::type>
 String unify(T s) {
     if (!s) return String{};
@@ -212,7 +210,7 @@ String string_trim(const T1 &s) {
 template <class String, class StrList>  // StrList must be SequenceContainer
 String string_join(const StrList &string_list, const String &sep) {
     static_assert(
-        is_same<typename StrList::value_type, String>::value,
+        std::is_same<typename StrList::value_type, String>::value,
         "The seperator and strings in string list must be the same type!");
     static_assert(is_string<String>::value, "Parameter type must be string");
 
@@ -256,7 +254,7 @@ template <class CharT, class StrList,
           class String =
               typename StrList::value_type>  // accept when sep is cstyle string
 String string_join(const StrList &string_list, const CharT *sep) {
-    static_assert(is_same<typename String::value_type, CharT>::value,
+    static_assert(std::is_same<typename String::value_type, CharT>::value,
                   "The seperator char type and the char type in string list "
                   "must be the same!");
     return string_join(string_list, unify(sep));

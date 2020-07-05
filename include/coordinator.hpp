@@ -9,21 +9,21 @@
 _THALLIUM_BEGIN_NAMESPACE
 
 namespace ti_exception {
-class bad_user_input: public runtime_error {
+class bad_user_input: public std::runtime_error {
   public:
-    explicit bad_user_input(const string &what_arg) : runtime_error(what_arg) {}
+    explicit bad_user_input(const std::string &what_arg) : std::runtime_error(what_arg) {}
 };
 }  // namespace ti_exception
 
 
 struct host_file_entry{
-    string hostname;
+    std::string hostname;
     int process_num;
 };
 
-host_file_entry parse_host_file_entry(const string &);
+host_file_entry parse_host_file_entry(const std::string &);
 
-vector<host_file_entry> read_host_file(const char *);
+std::vector<host_file_entry> read_host_file(const char *);
 
 
 _THALLIUM_END_NAMESPACE

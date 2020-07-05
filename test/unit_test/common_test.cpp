@@ -7,6 +7,9 @@
 #include "common.hpp"
 #include "test.hpp"
 
+using namespace thallium;
+using namespace std;
+
 struct structtest {
     std::string value;
     structtest(const std::string &s) : value(s) {}
@@ -17,8 +20,6 @@ std::ostream &operator<<(std::ostream &os, const structtest &t) {
 }
 
 TEST(FormatTest, FormatFunction) {
-    using namespace thallium;
-    using string = std::string;
 
     string t1 = "hello world!";
     ASSERT_TRUE(format(t1) == t1);

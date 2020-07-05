@@ -15,18 +15,18 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-
 // will always try to move if possible
-template <class T, typename std::enable_if<is_nothrow_move_assignable<T>::value,
-                                           int>::type = 0>
+template <class T,
+          typename std::enable_if<std::is_nothrow_move_assignable<T>::value,
+                                  int>::type = 0>
 inline void move_or_copy(T &to, T &from) {
-    to = move(from);
+    to = std::move(from);
 }
 
-template <class T,
-          typename std::enable_if<is_nothrow_copy_assignable<T>::value &&
-                                      !is_nothrow_move_assignable<T>::value,
-                                  int>::type = 0>
+template <class T, typename std::enable_if<
+                       std::is_nothrow_copy_assignable<T>::value &&
+                           !std::is_nothrow_move_assignable<T>::value,
+                       int>::type = 0>
 inline void move_or_copy(T &to, T &from) {
     to = from;
 }
@@ -35,8 +35,8 @@ template <class T>
 // T should not be shared/raw pointer, otherwise same object can be refered in
 // both side
 class BasicLockQueue {  // multi producers multi consumers
-    static_assert(is_nothrow_copy_assignable<T>::value ||
-                      is_nothrow_move_assignable<T>::value,
+    static_assert(std::is_nothrow_copy_assignable<T>::value ||
+                      std::is_nothrow_move_assignable<T>::value,
                   "The elements should be nothrow copy assignable or nothrow "
                   "move assignable!");
 
@@ -50,12 +50,12 @@ class BasicLockQueue {  // multi producers multi consumers
     BasicLockQueue(const BasicLockQueue &) = delete;
     BasicLockQueue(BasicLockQueue &&) = delete;
     ~BasicLockQueue() {}
-    template <class T_, class = typename enable_if<
-                            is_same<typename decay<T_>::type, T>::value>::type>
+    template <class T_, class = typename std::enable_if<std::is_same<
+                            typename std::decay<T_>::type, T>::value>::type>
     void send(T_ &&t) {
         {
             std::lock_guard<std::mutex> lock{q_mux};
-            msgq.push(forward<T_>(t));
+            msgq.push(std::forward<T_>(t));
         }
         has_msg_cd.notify_one();
     }
@@ -68,10 +68,9 @@ class BasicLockQueue {  // multi producers multi consumers
         msgq.pop();
     }
 
-    bool try_receive(T &t){
+    bool try_receive(T &t) {
         std::lock_guard<std::mutex> lock{q_mux};
-        if(msgq.empty())
-            return false;
+        if (msgq.empty()) return false;
         move_or_copy(t, msgq.front());
         msgq.pop();
     }
@@ -102,8 +101,8 @@ class LockFreeChannel {                     // lamport queue
     LockFreeChannel(const LockFreeChannel &c) = delete;
     LockFreeChannel(LockFreeChannel &&c) = delete;
 
-    template <class T_, class = typename enable_if<
-                            is_same<typename decay<T_>::type, T>::value>::type>
+    template <class T_, class = typename std::enable_if<std::is_same<
+                            typename std::decay<T_>::type, T>::value>::type>
     bool try_send(T_ &&t) {  // copy only
         auto head_v = head.load(std::memory_order_relaxed);
         auto tail_v = tail.load(std::memory_order_acquire);
@@ -126,8 +125,8 @@ class LockFreeChannel {                     // lamport queue
         return true;
     }
 
-    template <class T_, class = typename enable_if<
-                            is_same<typename decay<T_>::type, T>::value>::type>
+    template <class T_, class = typename std::enable_if<std::is_same<
+                            typename std::decay<T_>::type, T>::value>::type>
     void send(T_ &&data) {  // will block
         for (int t = 2; !try_send(std::forward<T_>(data));) {
             std::this_thread::sleep_for(std::chrono::microseconds(t));
@@ -149,8 +148,8 @@ template <class T>
 class SenderSideLockQueue {  // senario: logging, one active
                              // consumer, many less frequent producers
                              // infinite size
-    static_assert(is_nothrow_copy_assignable<T>::value ||
-                      is_nothrow_move_assignable<T>::value,
+    static_assert(std::is_nothrow_copy_assignable<T>::value ||
+                      std::is_nothrow_move_assignable<T>::value,
                   "The elements should be nothrow copy assignable or nothrow "
                   "move assignable!");
 
@@ -165,13 +164,13 @@ class SenderSideLockQueue {  // senario: logging, one active
     SenderSideLockQueue(const SenderSideLockQueue &) = delete;
     SenderSideLockQueue(SenderSideLockQueue &&) = delete;
     ~SenderSideLockQueue() {}
-    template <class T_, class = typename enable_if<
-                            is_same<typename decay<T_>::type, T>::value>::type>
+    template <class T_, class = typename std::enable_if<std::is_same<
+                            typename std::decay<T_>::type, T>::value>::type>
     void send(T_ &&t) {
         // non block
         {
             std::lock_guard<std::mutex> lock{in_lock};
-            in_queue.push(forward<T_>(t));
+            in_queue.push(std::forward<T_>(t));
         }
         has_msg_cd.notify_one();
     }
@@ -189,9 +188,8 @@ class SenderSideLockQueue {  // senario: logging, one active
         }
     }
 
-    bool try_receive(T &t){
-        if(out_queue.size() == 0)
-            return false;
+    bool try_receive(T &t) {
+        if (out_queue.size() == 0) return false;
         move_or_copy(t, out_queue.front());
         out_queue.pop();
         return true;

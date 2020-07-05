@@ -8,13 +8,13 @@
 #include "test.hpp"
 
 using namespace thallium;
+using namespace std;
 
 template <class T>
 class LockFreeChannel4096 : public LockFreeChannel<T, 4096> {};
 
 template <template <class> class C>
 void run_test_order() {
-    using namespace std;
     const int arr_size = 7;
     int a[arr_size] = {7, 6, 5, 4, 3, 2, 1};
 
@@ -285,7 +285,6 @@ TEST(ChannelTest, SenderSideLockQueueConcurrentWrite) {
 
 template <template <class> class C>
 void run_senario() {
-    using namespace std;
     C<string> c2;
 
     auto fib = [&](int n) -> int {  // not correct just for test

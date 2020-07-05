@@ -1,7 +1,9 @@
 #include "serialize.hpp"
+#include "common.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
+using namespace std;
 string my_serialized_method(string &a) { return a; }
 
 namespace Serializer {

@@ -42,21 +42,24 @@ target_link_libraries(unit_test gtest_main thallium test_util)
 include(GoogleTest)
 gtest_add_tests(TARGET unit_test)
 
+# using boost stactrace when debug
+function(addbacktrace TARGETNAME)
+if(APPLE)
+    add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
+    elseif(UNIX AND NOT APPLE)
+    add_definitions(-BOOST_STACKTRACE_USE_ADDR2LINE)
+    target_link_libraries(${TARGETNAME} dl)
+endif()
+endfunction(addbacktrace)
+
 # for each cpp in integration test folder create one binary
 file(GLOB i_test_src 
     "integration_test/*.cpp"
     )
 foreach(cppfile ${i_test_src})
-    get_filename_component(target_name ${cppfile} NAME_WLE)
+    get_filename_component(target_name ${cppfile} NAME_WE)
     add_executable(${target_name} ${cppfile})
     target_link_libraries(${target_name} thallium)
-endforeach()
+    addbacktrace(${target_name})
 
-# using boost stactrace when debug
-if(APPLE)
-    add_definitions(-DBOOST_STACKTRACE_GNU_SOURCE_NOT_REQUIRED)
-    elseif(UNIX AND NOT APPLE)
-    add_definitions(-DBOOST_STACKTRACE_USE_BACKTRACE)
-    target_link_libraries(integration_test dl)
-    target_link_libraries(integration_test backtrace)
-endif()
+endforeach()

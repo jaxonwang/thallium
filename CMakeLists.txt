@@ -18,27 +18,33 @@ cmake_policy(SET CMP0069 NEW)
 check_ipo_supported(RESULT ipo_enabled OUTPUT output)
 
 # enable warning
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -Wno-long-long -pedantic")
 
 # enable santinizer
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 
 # log level
-if(ISDEBUG)
+if(${CMAKE_BUILD_TYPE} MATCHES Debug)
     add_definitions(-DLOG_LEVEL_DEBUG)
 else()
     add_definitions(-DLOG_LEVEL_INFO)
-endif(ISDEBUG)
+endif()
 
 # boost // boost why are you so large?
 set(Boost_USE_MULTITHREADED FALSE)
-find_package(Boost 1.72 REQUIRED COMPONENTS system)
+find_package(Boost 1.67 REQUIRED COMPONENTS system)
 include_directories("${Boost_INCLUDE_DIR}")
 
 set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})
 
+# use pthread
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+
 # for this project
 include_directories("include")
+set(libraries_thallium_deps ${Boost_LIBRARIES} Threads::Threads)
 
 # find all cpp files
 file(GLOB src_files
@@ -48,19 +54,19 @@ file(GLOB src_files
 
 # static lib
 add_library(thallium STATIC ${src_files})
-target_link_libraries(thallium PRIVATE ${Boost_LIBRARIES})
+target_link_libraries(thallium PRIVATE ${libraries_thallium_deps})
 
 # shared lib
 add_library(thallium_shared SHARED ${src_files})
-target_link_libraries(thallium_shared PRIVATE ${Boost_LIBRARIES})
-if( NOT ${ISDEBUG} AND ipo_enabled )
+target_link_libraries(thallium_shared PRIVATE ${libraries_thallium_deps})
+if(${CMAKE_BUILD_TYPE} MATCHES Release AND ipo_enabled)
     message(STATUS "IPO / LTO enabled")
     set_property(TARGET thallium_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
 # header lib
 add_library(thallium_header INTERFACE)
-target_link_libraries(thallium_header INTERFACE ${Boost_LIBRARIES})
+target_link_libraries(thallium_header INTERFACE ${libraries_thallium_deps})
 target_compile_definitions(thallium_header
     INTERFACE LIBRARY_HEADER_ONLY
 )

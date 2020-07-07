@@ -73,6 +73,7 @@ class BasicLockQueue {  // multi producers multi consumers
         if (msgq.empty()) return false;
         move_or_copy(t, msgq.front());
         msgq.pop();
+        return true;
     }
 
     template <class Rep, class Period>
@@ -174,22 +175,24 @@ class SenderSideLockQueue {  // senario: logging, one active
         }
         has_msg_cd.notify_one();
     }
+
     void receive(T &t) {
-        while (true) {
-            if (out_queue.size() > 0) {
-                move_or_copy(t, out_queue.front());
-                out_queue.pop();
-                return;
-            } else {
-                std::unique_lock<std::mutex> iq{in_lock};
-                has_msg_cd.wait(iq, [&] { return !in_queue.empty(); });
-                out_queue.swap(in_queue);
-            }
+        if (out_queue.size() == 0) {
+            std::unique_lock<std::mutex> iq{in_lock};
+            has_msg_cd.wait(iq, [&] { return !in_queue.empty(); });
+            out_queue.swap(in_queue);
         }
+        move_or_copy(t, out_queue.front());
+        out_queue.pop();
+        return;
     }
 
     bool try_receive(T &t) {
-        if (out_queue.size() == 0) return false;
+        if (out_queue.size() == 0) {
+            std::lock_guard<std::mutex> lock{in_lock};
+            if (in_queue.empty()) return false;
+            out_queue.swap(in_queue);
+        }
         move_or_copy(t, out_queue.front());
         out_queue.pop();
         return true;
@@ -197,21 +200,18 @@ class SenderSideLockQueue {  // senario: logging, one active
 
     template <class Rep, class Period>
     bool receive_for(T &t, const std::chrono::duration<Rep, Period> &rel_time) {
-        while (true) {
-            if (out_queue.size() > 0) {
-                move_or_copy(t, out_queue.front());
-                out_queue.pop();
-                return true;
-            } else {
-                std::unique_lock<std::mutex> iq{in_lock};
-                bool success = has_msg_cd.wait_for(
-                    iq, rel_time, [&] { return !in_queue.empty(); });
-                if (success)
-                    out_queue.swap(in_queue);
-                else
-                    return false;
-            }
+        if (out_queue.size() == 0) {
+            std::unique_lock<std::mutex> iq{in_lock};
+            bool success = has_msg_cd.wait_for(
+                iq, rel_time, [&] { return !in_queue.empty(); });
+            if (success)
+                out_queue.swap(in_queue);
+            else
+                return false;
         }
+        move_or_copy(t, out_queue.front());
+        out_queue.pop();
+        return true;
     }
 };
 

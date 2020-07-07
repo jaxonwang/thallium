@@ -124,29 +124,27 @@ TEST(ChannelTest, SingleChannelConcurrentOrder) {
 template <template <class> class C>
 void run_try_receive() {
     const int arr_size = 7;
-    int a[arr_size] = {7, 6, 5, 4, 3, 2, 1};
 
     C<int> c;
-    for (auto &e : a) {
-        c.send(e);
-    }
 
-    vector<thread> ts(arr_size);
+    vector<thread> ts;
     for (int i = 0; i < arr_size; i++) {
         ts.push_back(thread{[&c, i]() { c.send(i); }});
     }
     for (int i = 0; i < arr_size; i++) {
-        int r;
-        ASSERT_TRUE(c.try_receive(r));
+        ts[i].join();
     }
     for (int i = 0; i < arr_size; i++) {
-        ts[i].join();
+        int r;
+        ASSERT_TRUE(c.try_receive(r));
     }
     for (int i = 0; i < 7; i++) {
         int r;
         ASSERT_FALSE(c.try_receive(r));
     }
+
     // send again to see try_receive will success;
+    int a[arr_size] = {7, 6, 5, 4, 3, 2, 1};
     for (auto &e : a) {
         c.send(e);
     }
@@ -154,6 +152,12 @@ void run_try_receive() {
         int r;
         ASSERT_TRUE(c.try_receive(r));
     }
+}
+
+TEST(ChannelTest, TryReceive) {
+    run_try_receive<BasicLockQueue>();
+    run_try_receive<SenderSideLockQueue>();
+    run_try_receive<LockFreeChannel4096>();
 }
 
 template <template <class> class C>

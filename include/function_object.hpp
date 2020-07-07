@@ -251,7 +251,7 @@ void register_func(Ret(func)(
     auto _p = std::make_shared<FunctionObject<Ret, ArgTypes...>>(func);
     auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
-    FuncManager::get()->addFunc(f_id, p);
+    FuncManager::get().addFunc(f_id, p);
 }
 
 template <class Ret, class... ArgTypes>
@@ -259,7 +259,7 @@ void register_func(std::function<Ret(ArgTypes...)> &func) {
     auto _p = std::make_shared<FunctionObject<Ret, ArgTypes...>>(func);
     auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
-    FuncManager::get()->addFunc(f_id, p);
+    FuncManager::get().addFunc(f_id, p);
 }
 
 template <class... ArgTypes>
@@ -267,7 +267,7 @@ void register_void_func(void(func)(ArgTypes...)) {
     auto _p = std::make_shared<VoidFunctionObject<ArgTypes...>>(func);
     auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
-    FuncManager::get()->addFunc(f_id, p);
+    FuncManager::get().addFunc(f_id, p);
 }
 
 template <class... ArgTypes>
@@ -275,7 +275,7 @@ void register_void_func(std::function<void(ArgTypes...)> &func) {
     auto _p = std::make_shared<VoidFunctionObject<ArgTypes...>>(func);
     auto p = std::dynamic_pointer_cast<FunctionObjectBase>(_p);
     auto f_id = function_id(func);
-    FuncManager::get()->addFunc(f_id, p);
+    FuncManager::get().addFunc(f_id, p);
 }
 
 std::shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id);

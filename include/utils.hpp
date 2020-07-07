@@ -9,19 +9,12 @@ _THALLIUM_BEGIN_NAMESPACE
 
 template <class C>
 class Singleton {
-  private:
-    static C *_instance;
-    static std::once_flag once;
-
   protected:
     Singleton() {}
 
   public:
-    static void init() { Singleton::_instance = new C{}; }
-    static C *get() {
-        if(!_instance){
-            std::call_once(once, init);
-        }
+    static C &get() {
+        static C _instance;
         return _instance;
     }
     Singleton(const Singleton &) =
@@ -30,11 +23,6 @@ class Singleton {
     Singleton &operator=(const Singleton &) = delete;
     Singleton &operator=(Singleton &&) = delete;
 };
-template <class C>
-C *Singleton<C>::_instance = nullptr;
-
-template <class C>
-std::once_flag Singleton<C>::once;
 
 template <class T>
 struct remove_cvref {

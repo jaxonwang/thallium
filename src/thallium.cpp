@@ -3,7 +3,7 @@
 #include <cstdlib>
 
 #include "context.hpp"
-#include "network.hpp"
+#include "network/network.hpp"
 
 using namespace std;
 
@@ -39,7 +39,7 @@ Buffer ExecutionHub::wait(Execution::ExeId id) {  // TODO FAKE wait for
 // factory method
 Execution::ExeId ExecutionFactory(const Place &place, const FuncId &f_id,
                                   BuffersPtr &&s_l) {
-    return ExecutionHub::get()->newExecution(place, f_id, move(s_l));
+    return ExecutionHub::get().newExecution(place, f_id, move(s_l));
 }
 
 void FinishMonitor::waitAll() {
@@ -82,7 +82,7 @@ Execution::ExeId AsyncExecManager::submitExecution(const Place &place,
     auto id = ExecutionFactory(place, f_id, move(s_l));
     // TODO turn prerun into running: release the buffers' mem
     // TODO submit exe to run
-    FinishStack::get()->addExecutionToCurrentFinish(id);
+    FinishStack::get().addExecutionToCurrentFinish(id);
     return id;
 }
 

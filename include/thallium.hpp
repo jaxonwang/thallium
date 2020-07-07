@@ -66,7 +66,7 @@ class ExecutionHub : public Singleton<ExecutionHub> {
 
 class ExecutionWaitor {  // wait interface
   public:
-    Buffer wait(Execution::ExeId id) { return ExecutionHub::get()->wait(id); }
+    Buffer wait(Execution::ExeId id) { return ExecutionHub::get().wait(id); }
 };
 
 class FinishStack;
@@ -96,8 +96,8 @@ class FinishStack : public Singleton<FinishStack> {
 class FinishSugar {
   public:
     bool once;
-    FinishSugar() : once(true) { FinishStack::get()->newFinish(); }
-    ~FinishSugar() { FinishStack::get()->endFinish(); }
+    FinishSugar() : once(true) { FinishStack::get().newFinish(); }
+    ~FinishSugar() { FinishStack::get().endFinish(); }
 };
 
 class ThreadExecutionHandler {};
@@ -135,7 +135,7 @@ class Coordinator {
         const FuncId f_id = function_id(f);
         auto s_l = Serializer::serializeList(args...);
         Execution::ExeId id =
-            MngT::get()->submitExecution(place, f_id, move(s_l));
+            MngT::get().submitExecution(place, f_id, move(s_l));
         return id;
     }
 
@@ -158,7 +158,7 @@ class Coordinator {
     }
     template <class Ret>
     static Ret getReturnValue(const Execution::ExeId e_id) {
-        Buffer ret = BlockedExecManager::get()->wait(e_id);
+        Buffer ret = BlockedExecManager::get().wait(e_id);
         return Serializer::deSerialize<Ret>(ret);
     }
 

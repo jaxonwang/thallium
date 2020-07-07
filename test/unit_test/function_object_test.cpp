@@ -128,14 +128,14 @@ int funtest(int a) { return a + 1; }
 TEST(FinishTest, FinishSuger) {
     auto bs_ptr = BuffersPtr{new Buffers{"123", "321", "1234567"}};
     for (FinishSugar i{}; i.once; i.once = false) {
-        AsyncExecManager::get()->submitExecution(
+        AsyncExecManager::get().submitExecution(
             this_host, function_id(funtest), move(bs_ptr));
-        AsyncExecManager::get()->submitExecution(
+        AsyncExecManager::get().submitExecution(
             this_host, function_id(funtest), move(bs_ptr));
-        AsyncExecManager::get()->submitExecution(
+        AsyncExecManager::get().submitExecution(
             this_host, function_id(funtest), move(bs_ptr));
     }
-    ASSERT_THROW(AsyncExecManager::get()->submitExecution(
+    ASSERT_THROW(AsyncExecManager::get().submitExecution(
                      this_host, function_id(funtest), move(bs_ptr)),
                  std::logic_error);
 }

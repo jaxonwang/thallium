@@ -31,7 +31,7 @@ shared_ptr<FunctionObjectBase> FuncManager::getFuncObj(const FuncId &f_id) {
 }
 
 shared_ptr<FunctionObjectBase> get_function_object(const FuncId &f_id) {
-    return FuncManager::get()->getFuncObj(f_id);
+    return FuncManager::get().getFuncObj(f_id);
 }
 
 _THALLIUM_END_NAMESPACE

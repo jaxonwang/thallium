@@ -7,6 +7,8 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
+using namespace std;
+
 bool valid_hostname(const char *hostname) {
     if (!hostname) return false;
     if (strlen(hostname) > 255) return false;

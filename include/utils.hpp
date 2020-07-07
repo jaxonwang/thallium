@@ -8,7 +8,7 @@
 _THALLIUM_BEGIN_NAMESPACE
 
 template <class C>
-class Singleton {
+class Singleton { // this signleton can not be recreated once init.
   protected:
     Singleton() {}
 

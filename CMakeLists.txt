@@ -23,42 +23,47 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic")
 # enable santinizer
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
 
-include(FetchContent)
-
-function(populate_unless_exist name)
-    FetchContent_GetProperties(${name})
-    if(NOT ${name}_POPULATED)
-        message("Fetching ${name} ...")
-        FetchContent_Populate(${name})
-        message("Done.")
-    endif()
-    set(${name}_SOURCE_DIR ${${name}_SOURCE_DIR} PARENT_SCOPE)
-endfunction(populate_unless_exist)
+# log level
+if(ISDEBUG)
+    add_definitions(-DLOG_LEVEL_DEBUG)
+else()
+    add_definitions(-DLOG_LEVEL_INFO)
+endif(ISDEBUG)
 
 # boost // boost why are you so large?
-find_package(Boost REQUIRED)
+set(Boost_USE_MULTITHREADED FALSE)
+find_package(Boost 1.72 REQUIRED COMPONENTS system)
 include_directories("${Boost_INCLUDE_DIR}")
 
 set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})
 
 # for this project
+include_directories("include")
 
+# find all cpp files
 file(GLOB src_files
     "src/*.cpp"
+    "src/network/*.cpp"
     )
+
+# static lib
 add_library(thallium STATIC ${src_files})
+target_link_libraries(thallium PRIVATE ${Boost_LIBRARIES})
+
+# shared lib
 add_library(thallium_shared SHARED ${src_files})
+target_link_libraries(thallium_shared PRIVATE ${Boost_LIBRARIES})
 if( NOT ${ISDEBUG} AND ipo_enabled )
     message(STATUS "IPO / LTO enabled")
     set_property(TARGET thallium_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
+
+# header lib
 add_library(thallium_header INTERFACE)
+target_link_libraries(thallium_header INTERFACE ${Boost_LIBRARIES})
 target_compile_definitions(thallium_header
     INTERFACE LIBRARY_HEADER_ONLY
 )
-
-include_directories("include")
-
 
 # testing
 enable_testing ()
@@ -68,4 +73,3 @@ if (THALLIUM_BUILD_TESTS)
 endif ()
 
 # examples
-

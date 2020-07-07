@@ -1,4 +1,4 @@
-#include "network.hpp"
+#include "network/network.hpp"
 
 #include "test.hpp"
 using namespace thallium;

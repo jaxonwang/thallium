@@ -28,7 +28,7 @@ void AsyncLogger::flush_one() {  // will block
 
 void AsyncLogger::flush_all() {  // will not block
     string tmp;
-    while (record_queue.try_receive(tmp)) { // try until nothing is left
+    while (record_queue.try_receive(tmp)) {  // try until nothing is left
         if (tmp.size() > 0) {
             _dest << tmp;
         }
@@ -42,16 +42,25 @@ bool LevelFilter::filter(int level) { return level >= min_level; }
 GlobalLoggerManager::GlobalLoggerManager(int level)
     : done(false),
       _ostream_ptr(nullptr),
-      _logger(std::cout),  // use cout as default output
+      _logger_ptr(new AsyncLogger(std::cout)),  // use cout as default output
       _level_filter(level),
       deamon([this]() { this->loop_body(); }) {}
 
 GlobalLoggerManager::GlobalLoggerManager(int level, const char *file_path)
-    : done(false),
-      _ostream_ptr(new ofstream{file_path, ios_base::app}),
-      _logger(*_ostream_ptr),
-      _level_filter(level),
-      deamon([this]() { this->loop_body(); }) {}
+    : done(false), _level_filter(level) {
+    ofstream *s_ptr = new ofstream{file_path, ios_base::app};
+    if (!s_ptr->is_open()) {
+        cerr << "Can not open file:" << file_path << ". Will log to stdout."
+             << endl;
+        delete s_ptr;
+        _logger_ptr.reset(new AsyncLogger(std::cout));
+    } else {
+        _ostream_ptr.reset(s_ptr);
+        _logger_ptr.reset(new AsyncLogger(*_ostream_ptr));
+    }
+    thread tmp{[this]() { this->loop_body(); }}; // use tmp variable to avoid uncertain copy elision
+    deamon = move(tmp);
+}
 
 GlobalLoggerManager::~GlobalLoggerManager() {
     stop();
@@ -60,20 +69,21 @@ GlobalLoggerManager::~GlobalLoggerManager() {
     }
 }
 
-AsyncLogger &GlobalLoggerManager::get_logger() { return _logger; }
+AsyncLogger &GlobalLoggerManager::get_logger() { return *_logger_ptr; }
 
 LevelFilter &GlobalLoggerManager::get_level_filter() { return _level_filter; }
 
 void GlobalLoggerManager::loop_body() {
     while (!done) {
-        _logger.flush_one();
+        _logger_ptr->flush_one();
     }
-    _logger.flush_all(); // when waken by stop(), there might be something left in queue
+    _logger_ptr->flush_all();  // when waken by stop(), there might be something
+                               // left in queue
 }
 
 void GlobalLoggerManager::stop() {
     done = true;
-    _logger.insert_record(
+    _logger_ptr->insert_record(
         string{});  // insert a empty record to wake the logger
 }
 
@@ -137,13 +147,18 @@ const char *Record::level_name(int level_num) {
 }
 
 // global storage of mng
-static shared_ptr<GlobalLoggerManager> mng = nullptr;
+static unique_ptr<GlobalLoggerManager> mng;
 
 AsyncLogger &get_global_logger() { return mng->get_logger(); }
 
 LevelFilter &get_global_level_filter() { return mng->get_level_filter(); }
 
-void logging_init() { mng = make_shared<GlobalLoggerManager>(LOG_LEVEL_NUM); }
+void logging_init(int level, const char *log_file_path) {
+    if (log_file_path)
+        mng.reset(new GlobalLoggerManager{level, log_file_path});
+    else
+        mng.reset(new GlobalLoggerManager{level});
+}
 
 void _log(int level, const char *file_name, const int line_num,
           const string &&msg) {

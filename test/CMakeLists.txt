@@ -27,6 +27,9 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
 # enabling gtest dirs
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
+# add include dir in src
+include_directories(${CMAKE_SOURCE_DIR}/src .)
+
 file(GLOB test_util_src "*.cpp")
 add_library(test_util STATIC ${test_util_src})
 
@@ -34,17 +37,20 @@ file(GLOB unit_test_src
     "unit_test/*.cpp"
     )
 add_executable(unit_test ${unit_test_src})
-include_directories(".")
 target_link_libraries(unit_test gtest_main thallium test_util)
 
 include(GoogleTest)
 gtest_add_tests(TARGET unit_test)
 
+# for each cpp in integration test folder create one binary
 file(GLOB i_test_src 
     "integration_test/*.cpp"
     )
-add_executable(integration_test ${i_test_src})
-target_link_libraries(integration_test thallium test_util)
+foreach(cppfile ${i_test_src})
+    get_filename_component(target_name ${cppfile} NAME_WLE)
+    add_executable(${target_name} ${cppfile})
+    target_link_libraries(${target_name} thallium)
+endforeach()
 
 # using boost stactrace when debug
 if(APPLE)

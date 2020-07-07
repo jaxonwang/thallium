@@ -86,7 +86,10 @@ TEST(Logging, GlobalLoggerManager){
     delete g_mng; 
     string line;
     ifstream fs{t_f.filepath};
-    for(int i = 0; getline(fs, line); i++){
+    int i = 0;
+    for(; getline(fs, line); i++){
         ASSERT_EQ(get_msg_from_record_string(line), msgs[i]);
     }
+    // this is a mistake I made, forget to check the loop is really executed to N times
+    ASSERT_EQ(i, msgs.size()); 
 }

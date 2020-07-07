@@ -84,7 +84,7 @@ class GlobalLoggerManager {
   private:
     std::atomic_bool done;
     std::unique_ptr<std::ostream> _ostream_ptr;
-    AsyncLogger _logger;
+    std::unique_ptr<AsyncLogger> _logger_ptr;
     LevelFilter _level_filter;
     std::thread deamon;
 
@@ -121,6 +121,8 @@ class Record {
     const char *level_name(int level_num);
 
 };
+
+void logging_init(int level, const char * file_path = nullptr); 
 
 void _log(int level, const char *file_name, const int line_num, const std::string &&msg);
 

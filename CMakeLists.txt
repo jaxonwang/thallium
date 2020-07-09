@@ -43,7 +43,7 @@ find_package(Threads REQUIRED)
 
 
 # for this project
-include_directories("include")
+include_directories(include src)
 set(libraries_thallium_deps ${Boost_LIBRARIES} Threads::Threads)
 
 # find all cpp files

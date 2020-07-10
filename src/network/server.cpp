@@ -1,5 +1,4 @@
 #include <boost/asio.hpp>
-#include <csignal>
 #include <cstring>
 #include <functional>
 #include <system_error>
@@ -8,10 +7,10 @@
 #include <vector>
 
 #include "common.hpp"
+#include "heartbeat.hpp"
 #include "logging.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
-#include "heartbeat.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
@@ -29,7 +28,6 @@ class ConnectionManager {
     execution_context &_context;
     unordered_map<int, socket_ptr> holdings;
     unordered_map<int, timer_ptr> heart_beat_timers;
-    // life time of context is longer than connection manager
     // this buffer will only grow but never shinks
     vector<char> _receive_buffer;
     array<char, message::header_size> _header_buffer;
@@ -53,16 +51,15 @@ class ConnectionManager {
 
 class AsyncServer : public Server {
   public:
-    AsyncServer(const ti_socket_t &);
+    AsyncServer(execution_context &ctx, const ti_socket_t &);
     void start() override;
     void stop() override;
     ti_socket_t server_socket() override;
 
   private:
     ti_socket_t _socket;
-    execution_context _context;  // mystrious context used by asio
+    execution_context &_context;  // mystrious context used by asio
     asio_tcp::acceptor _acceptor;
-    thallium::signal_set _signals;
     ConnectionManager _cmanager;
 
     void when_accept(const std::error_code &ec, asio_tcp::socket &&peer);
@@ -98,8 +95,8 @@ void ConnectionManager::new_connection(asio_tcp::socket &&peer) {
 }
 
 void ConnectionManager::when_header_received(const int conn_id,
-                                         const std::error_code &ec,
-                                         size_t bytes_read) {
+                                             const std::error_code &ec,
+                                             size_t bytes_read) {
     if (ec) {
         if (ec.value() == asio::error::operation_aborted)
             TI_DEBUG(
@@ -172,15 +169,15 @@ void ConnectionManager::do_receive_payload(const int conn_id,
         return length - bytes_read;
     };
     async_read(*holdings[conn_id], asio::buffer(_receive_buffer), condition,
-               std::bind(&ConnectionManager::when_payload_received, this, conn_id,
-                         length, _1, _2));
+               std::bind(&ConnectionManager::when_payload_received, this,
+                         conn_id, length, _1, _2));
 }
 
 void ConnectionManager::do_receive_message(const int conn_id) {
     // receive header first
-    async_read(
-        *holdings[conn_id], asio::buffer(_header_buffer),
-        std::bind(&ConnectionManager::when_header_received, this, conn_id, _1, _2));
+    async_read(*holdings[conn_id], asio::buffer(_header_buffer),
+               std::bind(&ConnectionManager::when_header_received, this,
+                         conn_id, _1, _2));
 }
 
 void ConnectionManager::when_receive_heart_beat(const int conn_id) {
@@ -209,26 +206,8 @@ void ConnectionManager::when_timeout(const int conn_id,
     }
 }
 
-AsyncServer::AsyncServer(const ti_socket_t &s)
-    : _socket(s),
-      _context(1),
-      _acceptor(_context),
-      _signals(_context),
-      _cmanager(_context) {
-#if defined(SIGPIPE)
-    _signals.add(SIGPIPE);
-#endif
-    // just ignore signals
-    _signals.async_wait([](const std::error_code &, int) {});
-
-    asio_tcp::endpoint ep{s.addr, s.port};
-    _acceptor.open(ep.protocol());
-    _acceptor.bind(ep);
-    _acceptor.listen();
-
-    // register callback
-    do_accept();
-}
+AsyncServer::AsyncServer(execution_context &ctx, const ti_socket_t &s)
+    : _socket(s), _context(ctx), _acceptor(_context), _cmanager(_context) {}
 
 ti_socket_t AsyncServer::server_socket() { return _socket; }
 
@@ -255,10 +234,18 @@ void AsyncServer::stop() {
     _acceptor.close();
 }
 
-void AsyncServer::start() { _context.run(); }
+void AsyncServer::start() {
+    asio_tcp::endpoint ep{_socket.addr, _socket.port};
+    _acceptor.open(ep.protocol());
+    _acceptor.bind(ep);
+    _acceptor.listen();
+
+    // register callback
+    do_accept();
+}
 
 std::shared_ptr<Server> ServerFactory(const ti_socket_t &s) {
-    return make_shared<AsyncServer>(s);
+    // return make_shared<AsyncServer>(s);
 }
 
 _THALLIUM_END_NAMESPACE

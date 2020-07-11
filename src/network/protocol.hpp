@@ -1,6 +1,7 @@
-#ifndef _THALLIUM_PROTOCOL_HEADER
-#define _THALLIUM_PROTOCOL_HEADER
+#ifndef _THALLIUM_NETWORK_PROTOCOL_HEADER
+#define _THALLIUM_NETWORK_PROTOCOL_HEADER
 
+#include <memory>
 #include <vector>
 
 #include "common.hpp"
@@ -24,6 +25,16 @@ constexpr size_t header_size = sizeof(Header);
 
 struct Body {
     std::vector<char *> body;
+};
+
+typedef std::vector<char> CopyableBuffer;
+
+class ZeroCopyBuffer :public CopyableBuffer{
+    public:
+    ZeroCopyBuffer(typename CopyableBuffer::size_type, typename CopyableBuffer::value_type);
+    ZeroCopyBuffer(const ZeroCopyBuffer &) = delete;
+    ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
+    CopyableBuffer &to_copyable();
 };
 
 }  // namespace message

@@ -11,6 +11,14 @@ Header string_to_header(const char *buf) {
     return h;
 }
 
+ZeroCopyBuffer::ZeroCopyBuffer(typename CopyableBuffer::size_type size,
+                               typename CopyableBuffer::value_type value)
+    : CopyableBuffer(size, value) {}
+
+CopyableBuffer &ZeroCopyBuffer::to_copyable() {
+    return static_cast<CopyableBuffer &>(*this);
+}
+
 }  // namespace message
 
 _THALLIUM_END_NAMESPACE

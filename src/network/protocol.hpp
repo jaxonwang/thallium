@@ -30,9 +30,12 @@ struct Body {
 typedef std::vector<char> CopyableBuffer;
 
 class ZeroCopyBuffer :public CopyableBuffer{
+    typedef CopyableBuffer::size_type size_type;
+    typedef CopyableBuffer::value_type value_type;
     public:
-    ZeroCopyBuffer(typename CopyableBuffer::size_type, typename CopyableBuffer::value_type);
+    ZeroCopyBuffer(size_type, value_type=size_type());
     ZeroCopyBuffer(const ZeroCopyBuffer &) = delete;
+    ZeroCopyBuffer(ZeroCopyBuffer &&);
     ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
     CopyableBuffer &to_copyable();
 };

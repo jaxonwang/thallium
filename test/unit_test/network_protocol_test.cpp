@@ -34,4 +34,11 @@ TEST(NetworkProtocol, ZeroCopyBuffer){
     for (size_t i = 0; i < b.size(); i++) {
         ASSERT_EQ(b[i], 1);
     }
+
+    ZeroCopyBuffer cb2(move(b));
+    ASSERT_EQ(cb2.size(), 64);
+    ASSERT_EQ(b.size(), 0);
+    for (size_t i = 0; i < cb2.size(); i++) {
+        ASSERT_EQ(cb2[i], 1);
+    }
 }

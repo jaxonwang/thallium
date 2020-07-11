@@ -1,5 +1,5 @@
-#ifndef _THALLIUM_ASIO_WRAPPER
-#define _THALLIUM_ASIO_WRAPPER
+#ifndef _THALLIUM_NETWORK_ASIO_WRAPPER
+#define _THALLIUM_NETWORK_ASIO_WRAPPER
 
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio.hpp>

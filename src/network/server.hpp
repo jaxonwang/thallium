@@ -7,6 +7,7 @@
 #include "common.hpp"
 #include "io_loop.hpp"
 #include "network.hpp"
+#include "behavior.hpp"
 #include "protocol.hpp"
 #include "connection.hpp"
 
@@ -32,6 +33,13 @@ class ConnectionManager : public Layers {
 };
 
 class AsyncServer : public Server {
+  private:
+    ti_socket_t _socket;
+    execution_context &_context;  // mystrious context used by asio
+    boost::asio::ip::tcp::acceptor _acceptor;
+
+    void when_accept(const std::error_code &ec, boost::asio::ip::tcp::socket &&peer);
+    void do_accept();
   public:
     AsyncServer(execution_context &ctx, const ti_socket_t &);
     void start() override;
@@ -40,17 +48,11 @@ class AsyncServer : public Server {
 
     ConnectionManager _cmanager;
 
-  private:
-    ti_socket_t _socket;
-    execution_context &_context;  // mystrious context used by asio
-    boost::asio::ip::tcp::acceptor _acceptor;
-
-    void when_accept(const std::error_code &ec, boost::asio::ip::tcp::socket &&peer);
-    void do_accept();
 };
 
 template<class ServerLogic>
 void RunServer(const ti_socket_t & s){
+    static_assert(std::is_base_of<ServerModel, ServerLogic>::value, "ServerLogic should be ServerModel!");
     auto && ctx_ptr = init_io_main_loop();
 
     ServerLogic s_impl;

@@ -17,4 +17,13 @@ class BasicModel: public Layers{
     virtual void start(){}
 };
 
+class ServerModel: public BasicModel{};
+
+class ClientModel: public BasicModel{
+
+    virtual void init_logic() = 0;
+
+    void start() override;
+};
+
 _THALLIUM_END_NAMESPACE

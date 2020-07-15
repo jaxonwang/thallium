@@ -35,6 +35,7 @@ class ZeroCopyBuffer :public CopyableBuffer{
     public:
     ZeroCopyBuffer(size_type, value_type=size_type());
     ZeroCopyBuffer(const ZeroCopyBuffer &) = delete;
+    ZeroCopyBuffer(CopyableBuffer &&);
     ZeroCopyBuffer(ZeroCopyBuffer &&);
     ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
     CopyableBuffer &to_copyable();

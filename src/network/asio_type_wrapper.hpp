@@ -14,7 +14,7 @@ typedef boost::asio::io_context execution_context;
 
 typedef boost::asio::signal_set signal_set; 
 
-real_addr_type hostname(const char *);
+real_addr_type resolve(const std::string &, std::error_code &e);
 
 _THALLIUM_END_NAMESPACE
 

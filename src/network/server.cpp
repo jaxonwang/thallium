@@ -38,6 +38,10 @@ void ConnectionManager::receive(const int conn_id, const char * buf, const size_
     upper->receive(conn_id, buf, length);
 }
 
+void ConnectionManager::disconnect(const int conn_id){
+    holdings[conn_id]->connection_close();
+}
+
 AsyncServer::AsyncServer(execution_context &ctx, const ti_socket_t &s)
     : _socket(s), _context(ctx), _acceptor(_context), _cmanager(_context) {}
 
@@ -62,6 +66,7 @@ void AsyncServer::when_accept(const std::error_code &ec,
 }
 
 void AsyncServer::stop() {
+    // cancel of connection is done by the logics in servermodel
     _acceptor.cancel();
     _acceptor.close();
 }
@@ -74,6 +79,20 @@ void AsyncServer::start() {
 
     // register callback
     do_accept();
+}
+
+void RunServer(ServerModel &s_impl, AsyncServer &s_async){
+    
+    // need to compose these together
+    // shit goes here
+    s_impl.lower = &s_async._cmanager;
+    s_impl.stopper = &s_async;
+    s_impl.disconnector = &s_async._cmanager;
+
+    s_async._cmanager.upper = &s_impl;
+
+    s_async.start();
+    s_impl.start();
 }
 
 _THALLIUM_END_NAMESPACE

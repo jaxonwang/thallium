@@ -10,13 +10,14 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-class AsyncClient : virtual public Client, virtual public Layers {
+class AsyncClient : public Layer, public Disconnector, public Stoper{
   public:
     AsyncClient(execution_context &ctx, const ti_socket_t &);
-    void start() override;
+    AsyncClient(execution_context &ctx, const std::string &, unsigned short port);
+    void start();
     void stop() override;
-    ti_socket_t client_socket() override;
-    Layers *upper;
+    ti_socket_t client_socket();
+    Layer *upper;
 
   private:
     ti_socket_t _socket;
@@ -24,22 +25,12 @@ class AsyncClient : virtual public Client, virtual public Layers {
     std::unique_ptr<ClientConnection> holding;
     void receive(const int, const char *, const size_t) override;
     void send(const int, message::ZeroCopyBuffer &&msg) override;
+    void disconnect(const int) override;
+    template<class Endpoints>
+    real_addr_type try_connect(boost::asio::ip::tcp::socket & asio_s, Endpoints & eps);
 };
 
-template<class ClientLogic>
-void RunClient(const ti_socket_t & s){
-    static_assert(std::is_base_of<ClientModel, ClientLogic>::value, "ClientLogic should be ClientModel!");
-    auto && ctx_ptr = init_io_main_loop();
-
-    ClientLogic c_impl;
-    AsyncClient c_async{*ctx_ptr, s};
-    c_impl.lower = c_async;
-    c_async.upper = c_impl;
-    c_async.start();
-    c_impl.start();
-
-    main_loop(*ctx_ptr);
-}
+void RunClient(ClientModel &, AsyncClient &);
 
 _THALLIUM_END_NAMESPACE
 

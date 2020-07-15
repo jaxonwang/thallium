@@ -18,6 +18,9 @@ ZeroCopyBuffer::ZeroCopyBuffer(typename CopyableBuffer::size_type size,
 ZeroCopyBuffer::ZeroCopyBuffer(ZeroCopyBuffer &&other)
     : CopyableBuffer(move(other)) {}
 
+ZeroCopyBuffer::ZeroCopyBuffer(CopyableBuffer &&other)
+    : CopyableBuffer(move(other)) {}
+
 CopyableBuffer &ZeroCopyBuffer::to_copyable() {
     return static_cast<CopyableBuffer &>(*this);
 }

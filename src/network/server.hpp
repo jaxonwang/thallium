@@ -13,7 +13,7 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-class ConnectionManager : public Layers {
+class ConnectionManager : public Layer, public Disconnector{
 
   private:
     execution_context & _context;
@@ -28,11 +28,12 @@ class ConnectionManager : public Layers {
 
     void inline send(const int, message::ZeroCopyBuffer &&) override;
     void inline receive(const int, const char *, const size_t) override;
+    void inline disconnect(const int) override;
 
-    Layers *upper;
+    Layer *upper;
 };
 
-class AsyncServer : public Server {
+class AsyncServer : public Stoper{
   private:
     ti_socket_t _socket;
     execution_context &_context;  // mystrious context used by asio
@@ -42,29 +43,15 @@ class AsyncServer : public Server {
     void do_accept();
   public:
     AsyncServer(execution_context &ctx, const ti_socket_t &);
-    void start() override;
+    void start();
     void stop() override;
-    ti_socket_t server_socket() override;
+    ti_socket_t server_socket();
 
     ConnectionManager _cmanager;
 
 };
 
-template<class ServerLogic>
-void RunServer(const ti_socket_t & s){
-    static_assert(std::is_base_of<ServerModel, ServerLogic>::value, "ServerLogic should be ServerModel!");
-    auto && ctx_ptr = init_io_main_loop();
-
-    ServerLogic s_impl;
-    AsyncServer s_async{*ctx_ptr, s};
-    s_impl.lower = s_async._cmanager;
-    s_async._cmanager.upper = s_impl;
-    s_async.start();
-    s_impl.start();
-
-    main_loop(*ctx_ptr);
-}
-
+void RunServer(ServerModel &s_impl, AsyncServer &s_async);
 
 _THALLIUM_END_NAMESPACE
 #endif

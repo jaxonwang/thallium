@@ -26,6 +26,7 @@ struct ti_socket_t {
     std::string to_string() const;
 };
 
+
 // in server.hpp
 
 class Server {
@@ -52,12 +53,6 @@ class Client {
     virtual ti_socket_t client_socket() = 0;
     virtual void start() = 0;
     virtual void stop() = 0;
-};
-
-class Layers {
-  public:
-    virtual void send(const int conn_id, message::ZeroCopyBuffer &&msg) = 0;
-    virtual void receive(const int conn_id, const char *, const size_t) = 0;
 };
 
 _THALLIUM_END_NAMESPACE

@@ -10,6 +10,8 @@
 #include "network/behavior.hpp"
 #include "network/asio_type_wrapper.hpp"
 
+#define BOOST_ASIO_ENABLE_HANDLER_TRACKING
+
 static int port;
 
 using namespace std;
@@ -21,29 +23,18 @@ class ServerImpl: public ServerModel{
     void logic(int conn_id, message::CopyableBuffer &msg) override{
 
         send(conn_id, message::ZeroCopyBuffer(move(msg)));
-    }
-
-};
-
-class ClientImpl:public ClientModel{
-
-    void logic(int conn_id, message::CopyableBuffer &msg) override{
-        cout << msg.data() << endl;
-        disconnect(conn_id);
         stop();
     }
 
-    void init_logic() override{
-        string s = "sdafsdagfasl;dfka";
-        message::CopyableBuffer b{s.begin(), s.end()};
-        send(0, message::ZeroCopyBuffer(move(b)));
-    }
 };
 
-void server(execution_context &ctx){
-
+int main()
+{
+    logging_init(0);
+    execution_context ctx{1};
+    
     std::error_code ec;
-    ti_socket_t skt = {0, resolve("127.0.0.1", ec)};
+    ti_socket_t skt = {33333, resolve("127.0.0.1", ec)};
     AsyncServer s{ctx, skt};
 
     ServerImpl s_impl;
@@ -51,30 +42,7 @@ void server(execution_context &ctx){
 
     port = s.server_socket().port;
 
-}
-
-void client(){
-    execution_context ctx{1};
-
-    AsyncClient c(ctx, "127.0.0.1", port);
-
-    ClientImpl c_impl;
-    RunClient(c_impl, c);
-
     ctx.run();
-
-}
-
-int main()
-{
-    logging_init(0);
-    execution_context ctx{1};
-    
-    server(ctx);
-    auto t2 = thread(client);
-
-    ctx.run();
-    t2.join();
 }
 
 

@@ -21,11 +21,11 @@ real_addr_type AsyncClient::try_connect(asio_tcp::socket & asio_s, Endpoints & e
         ep = connect(asio_s, eps);
         // copy the connected
     } catch (const std::system_error &e) {
-        TI_FATAL(format("Try to connect to {} failed: {}", _socket.to_string(),
+        TI_FATAL(format("Connect failed: {}",
                         e.what()));
         throw e;
     }
-    TI_DEBUG(format("Successfully connect to {}", _socket.to_string()));
+    TI_DEBUG(format("Successfully connect to {}", ep.address().to_string()));
 
     // just return 0 as conn id
     function<void(const char *, const size_t)> f =

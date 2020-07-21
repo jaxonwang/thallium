@@ -33,6 +33,7 @@ class Connection {
     std::vector<char> _receive_buffer;
     std::array<char, message::header_size> _header_buffer;
     std::queue<std::unique_ptr<buffer_sequence>> _write_queue;
+    std::string socket_str;
 
     receive_callback upper_layer_callback;
     void do_write();
@@ -56,6 +57,7 @@ class Connection {
 
     virtual void when_timeout(const std::error_code &ec) = 0;
     virtual void header_parser() = 0;
+    virtual void handle_eof() = 0;
 };
 
 class ServerConnection : public Connection {
@@ -65,6 +67,7 @@ class ServerConnection : public Connection {
     void when_receive_heartbeat();
     void when_timeout(const std::error_code &ec) override;
     void header_parser() override;
+    void handle_eof() override;
 };
 
 class ClientConnection : public Connection {
@@ -74,6 +77,7 @@ class ClientConnection : public Connection {
     void do_send_heartbeat();
     void when_timeout(const std::error_code &ec) override;
     void header_parser() override;
+    void handle_eof() override;
 };
 
 _THALLIUM_END_NAMESPACE

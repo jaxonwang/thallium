@@ -1,6 +1,7 @@
 #include "logging.hpp"
 
 #include <unordered_map>
+#include <mutex>
 
 #include "common.hpp"
 
@@ -89,7 +90,8 @@ void GlobalLoggerManager::stop() {
 
 const char *get_file_name(const char *path) {
     // get the file name for __FILE__ macro
-    static unordered_map<const char *, const char *> dict;
+    //  should be thread safe
+    static thread_local unordered_map<const char *, const char *> dict;
     if (dict.count(path) == 0) {
         const char *pos = strrchr(path, '/') ? strrchr(path, '/') + 1 : path;
         dict[path] = pos;

@@ -33,6 +33,16 @@ inline void __raise_right_brace_unmatch(const std::string &fmt) {
                                         fmt));
 }
 
+template< class T>
+constexpr T variadic_sum(T && t){
+    return t;
+}
+
+template< class T, class... T1>
+constexpr T variadic_sum(T && t1, T1 &&... args){
+    return t1 + variadic_sum(std::forward<T1>(args)...);
+}
+
 template <class T>
 inline void __raise_too_many_args(T &t) {
     std::stringstream tss{"Too many argumetns given: "};

@@ -18,8 +18,8 @@ using namespace std;
 using namespace thallium;
 
 class ServerImpl : public ServerModel {
-    void logic(int conn_id, const char* buf, const size_t length) override {
-        message::CopyableBuffer msg(buf, buf + length);
+    void logic(int conn_id, const message::ReadOnlyBuffer & buf) override {
+        message::CopyableBuffer msg(buf.data(), buf.data() + buf.size());
 
         send(conn_id, message::ZeroCopyBuffer(move(msg)));
         stop();

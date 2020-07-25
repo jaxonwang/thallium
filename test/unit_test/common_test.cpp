@@ -1,10 +1,11 @@
 
+#include "common.hpp"
+
 #include <iostream>
-#include <vector>
 #include <list>
 #include <string>
+#include <vector>
 
-#include "common.hpp"
 #include "test.hpp"
 
 using namespace thallium;
@@ -18,9 +19,12 @@ std::ostream &operator<<(std::ostream &os, const structtest &t) {
     os << t.value;
     return os;
 }
+TEST(VariadicSum, Base) {
+    ASSERT_EQ(variadic_sum(1, 2, 3, 4, 5), 15);
+    ASSERT_EQ(variadic_sum(1), 1);
+}
 
 TEST(FormatTest, FormatFunction) {
-
     string t1 = "hello world!";
     ASSERT_TRUE(format(t1) == t1);
     ASSERT_TRUE(format("{} world!", "hello") == t1);
@@ -44,11 +48,11 @@ TEST(FormatTest, FormatFunction) {
     ASSERT_TRUE(format("{}{{ {}", "hello", "world!") == t6);
     string t7 = "hello} world!";
     ASSERT_TRUE(format("{}}} {}", "hello", "world!") == t7);
-    ASSERT_TRUE(format("{}{}{}{}{} {}{}{}{}{}!", "h", "e", "l", "l", "o", "w", "o",
-                   "r", "l", "d") == t1);
+    ASSERT_TRUE(format("{}{}{}{}{} {}{}{}{}{}!", "h", "e", "l", "l", "o", "w",
+                       "o", "r", "l", "d") == t1);
 
     ASSERT_TRUE(format("{} {} {} {} {} {}", 1, 2.1, -1, 0xff, 'c', 0) ==
-            "1 2.1 -1 255 c 0");
+                "1 2.1 -1 255 c 0");
 
     ASSERT_TRUE(format("{} world{}", structtest{"hello"}, "!") == t1);
     ASSERT_THROW(format("hello world!{"), ti_exception::format_error);
@@ -59,26 +63,22 @@ TEST(FormatTest, FormatFunction) {
     ASSERT_THROW(format("hello {world!}"), ti_exception::format_error);
     ASSERT_THROW(format("hello {world!"), ti_exception::format_error);
     ASSERT_THROW(format("hello }world!"), ti_exception::format_error);
-    ASSERT_THROW(format("hello {{}world!", "ha"),
-                      ti_exception::format_error);
-    ASSERT_THROW(format("hello {}}world!", "ha"),
-                      ti_exception::format_error);
+    ASSERT_THROW(format("hello {{}world!", "ha"), ti_exception::format_error);
+    ASSERT_THROW(format("hello {}}world!", "ha"), ti_exception::format_error);
 
     ASSERT_THROW(format("hello {}world!"), ti_exception::format_error);
-    ASSERT_THROW(format("hello {}{}world!", "ha1"),
-                      ti_exception::format_error);
-    ASSERT_THROW(format("hello world!", "ha1"),
-                      ti_exception::format_error);
+    ASSERT_THROW(format("hello {}{}world!", "ha1"), ti_exception::format_error);
+    ASSERT_THROW(format("hello world!", "ha1"), ti_exception::format_error);
     ASSERT_THROW(format("hello {}world!", "ha1", "ha2"),
-                      ti_exception::format_error);
+                 ti_exception::format_error);
     ASSERT_THROW(format("hello world!{}", "ha1", "ha2"),
-                      ti_exception::format_error);
+                 ti_exception::format_error);
     ASSERT_THROW(format("{}hello world!", "ha1", "ha2"),
-                      ti_exception::format_error);
+                 ti_exception::format_error);
 }
 
-TEST(StringTest, StringJoin){
-    string sep0 {","};
+TEST(StringTest, StringJoin) {
+    string sep0{","};
     vector<string> strlst0 = {"0", "1", "2", "3", "4"};
 
     string ret = thallium::string_join(strlst0, sep0);
@@ -111,10 +111,9 @@ TEST(StringTest, StringJoin){
     wstring sep2{L","};
     wstring ret2 = thallium::string_join(strlst2, sep2);
     ASSERT_EQ(ret2, wstring(L"0,1,2,3,4"));
-
 }
 
-TEST(StringTest, StringTrim){
+TEST(StringTest, StringTrim) {
     using namespace thallium;
     string s0{""};
     ASSERT_EQ("", string_trim(s0));
@@ -138,34 +137,42 @@ TEST(StringTest, StringTrim){
     ASSERT_EQ(L"123", string_trim(L"  \n\r123\t "));
     ASSERT_EQ(L"2332", string_trim(L"123321", L"1"));
     ASSERT_EQ(L"33", string_trim(L"123321", L"21"));
-
 }
 
-TEST(StringTest, StringSplit){
+TEST(StringTest, StringSplit) {
     using namespace thallium;
     ASSERT_EQ(vector<string>({"abc"}), string_split<vector>("abc", ""));
     ASSERT_EQ(vector<string>({"abc"}), string_split<vector>("abc", "d"));
     ASSERT_EQ(vector<string>({""}), string_split<vector>("", "d"));
     ASSERT_EQ(vector<string>({""}), string_split<vector>("", ""));
 
-    ASSERT_EQ(vector<string>({"1", "2", "3", "4", "5"}), string_split<vector>("1 2 3 4 5", " "));
-    ASSERT_EQ(vector<string>({"", "2", "3", "4", ""}), string_split<vector>(" 2 3 4 ", " "));
-    ASSERT_EQ(vector<string>({"2", "", "4"}), string_split<vector>("2  4", " "));
+    ASSERT_EQ(vector<string>({"1", "2", "3", "4", "5"}),
+              string_split<vector>("1 2 3 4 5", " "));
+    ASSERT_EQ(vector<string>({"", "2", "3", "4", ""}),
+              string_split<vector>(" 2 3 4 ", " "));
+    ASSERT_EQ(vector<string>({"2", "", "4"}),
+              string_split<vector>("2  4", " "));
 
-    ASSERT_EQ(vector<string>({"1", "41", "4"}), string_split<vector>("12341234", "23"));
-    ASSERT_EQ(vector<string>({"", "", ""}), string_split<vector>("12341234", "1234"));
+    ASSERT_EQ(vector<string>({"1", "41", "4"}),
+              string_split<vector>("12341234", "23"));
+    ASSERT_EQ(vector<string>({"", "", ""}),
+              string_split<vector>("12341234", "1234"));
 
-    ASSERT_EQ(list<string>({"1", "41", "4"}), string_split<list>("12341234", "23"));
-    ASSERT_EQ(list<string>({"", "", ""}), string_split<list>("12341234", "1234"));
+    ASSERT_EQ(list<string>({"1", "41", "4"}),
+              string_split<list>("12341234", "23"));
+    ASSERT_EQ(list<string>({"", "", ""}),
+              string_split<list>("12341234", "1234"));
 
-    ASSERT_EQ(list<wstring>({L"1", L"41", L"4"}), string_split<list>(L"12341234", L"23"));
-    ASSERT_EQ(list<wstring>({L"", L"", L""}), string_split<list>(L"12341234", L"1234"));
+    ASSERT_EQ(list<wstring>({L"1", L"41", L"4"}),
+              string_split<list>(L"12341234", L"23"));
+    ASSERT_EQ(list<wstring>({L"", L"", L""}),
+              string_split<list>(L"12341234", L"1234"));
 
-    ASSERT_EQ(list<string>({"12", "34", "56", "78"}), string_split<list>("12__34__56__78", "__"));
+    ASSERT_EQ(list<string>({"12", "34", "56", "78"}),
+              string_split<list>("12__34__56__78", "__"));
 }
 
-TEST(StringTest, CharTest){
-
+TEST(StringTest, CharTest) {
     // I ate too much
     using namespace thallium;
     string lower{"abcdefghijklmnopqrstuvwxyz"};
@@ -173,29 +180,28 @@ TEST(StringTest, CharTest){
     string others{"!@#$%^&*()_+|~}{:\"?><\\=-`"};
     string digits{"1234567890"};
 
-    for (auto && c: lower) {
-       ASSERT_TRUE(is_lowercase(c));
-       ASSERT_TRUE(is_letter(c));
-       ASSERT_FALSE(is_digit(c));
-       ASSERT_FALSE(is_uppercase(c));
+    for (auto &&c : lower) {
+        ASSERT_TRUE(is_lowercase(c));
+        ASSERT_TRUE(is_letter(c));
+        ASSERT_FALSE(is_digit(c));
+        ASSERT_FALSE(is_uppercase(c));
     }
-    for (auto && c: upper) {
-       ASSERT_FALSE(is_lowercase(c));
-       ASSERT_TRUE(is_letter(c));
-       ASSERT_FALSE(is_digit(c));
-       ASSERT_TRUE(is_uppercase(c));
+    for (auto &&c : upper) {
+        ASSERT_FALSE(is_lowercase(c));
+        ASSERT_TRUE(is_letter(c));
+        ASSERT_FALSE(is_digit(c));
+        ASSERT_TRUE(is_uppercase(c));
     }
-    for (auto && c: digits) {
-       ASSERT_FALSE(is_lowercase(c));
-       ASSERT_FALSE(is_letter(c));
-       ASSERT_TRUE(is_digit(c));
-       ASSERT_FALSE(is_uppercase(c));
+    for (auto &&c : digits) {
+        ASSERT_FALSE(is_lowercase(c));
+        ASSERT_FALSE(is_letter(c));
+        ASSERT_TRUE(is_digit(c));
+        ASSERT_FALSE(is_uppercase(c));
     }
-    for (auto && c: others) {
-       ASSERT_FALSE(is_lowercase(c));
-       ASSERT_FALSE(is_letter(c));
-       ASSERT_FALSE(is_digit(c));
-       ASSERT_FALSE(is_uppercase(c));
+    for (auto &&c : others) {
+        ASSERT_FALSE(is_lowercase(c));
+        ASSERT_FALSE(is_letter(c));
+        ASSERT_FALSE(is_digit(c));
+        ASSERT_FALSE(is_uppercase(c));
     }
 }
-

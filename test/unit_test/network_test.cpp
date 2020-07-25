@@ -54,8 +54,8 @@ class ServerImpl : public ServerModel {
 
   public:
     ServerImpl() : state(1) {}
-    void logic(int conn_id, const char * buf, const size_t length) override {
-        string s(buf, length);
+    void logic(int conn_id, const message::ReadOnlyBuffer & buf) override {
+        string s(buf.data(), buf.size());
         if (s == "stop") {
             stop();
         } else {
@@ -77,9 +77,9 @@ class ClientImpl : public ClientModel {
     ClientImpl(long long n, function<void(long long)> f) : n(n), count(0), state(1), f(f) {}
 
   protected:
-    void logic(int conn_id, const char * buf, const size_t length) override {
+    void logic(int conn_id, const message::ReadOnlyBuffer & buf) override {
+        string s1(buf.data(), buf.size());
         count++;
-        string s1(buf, length);
         long long in = stoll(s1);
         if (count >= n) {
             state = in;

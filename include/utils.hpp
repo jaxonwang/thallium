@@ -25,14 +25,14 @@ class Singleton { // this signleton can not be recreated once init.
 };
 
 template <class T>
-struct remove_cvref {
+struct tl_remove_cvref {
     typedef
         typename std::remove_cv<typename std::remove_reference<T>::type>::type
             type;
 };
 
 template <class T>
-using remove_cvref_t = typename remove_cvref<T>::type;
+using tl_remove_cvref_t = typename tl_remove_cvref<T>::type;
 
 _THALLIUM_END_NAMESPACE
 

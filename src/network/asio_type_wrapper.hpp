@@ -16,6 +16,12 @@ typedef boost::asio::signal_set signal_set;
 
 real_addr_type resolve(const std::string &, std::error_code &e);
 
+struct ti_socket_t {
+    unsigned short port;
+    real_addr_type addr;
+    std::string to_string() const;
+};
+
 _THALLIUM_END_NAMESPACE
 
 

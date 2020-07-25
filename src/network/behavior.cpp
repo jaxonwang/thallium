@@ -10,9 +10,7 @@ void BasicModel::send(const int conn_id, message::ZeroCopyBuffer &&msg) {
 
 void BasicModel::receive(const int conn_id, const char *buf,
                          const size_t length) {
-    // TODO: a copy here
-    message::CopyableBuffer msg{buf, buf + length};
-    logic(conn_id, msg);
+    logic(conn_id, buf, length);
 }
 
 void BasicModel::disconnect(const int conn_id){

@@ -1,5 +1,4 @@
 #include "asio_type_wrapper.hpp"
-#include "network.hpp"
 #include "logging.hpp"
 
 #include <system_error>

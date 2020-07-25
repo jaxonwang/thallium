@@ -5,8 +5,6 @@
 #include <unordered_map>
 
 #include "common.hpp"
-#include "io_loop.hpp"
-#include "network.hpp"
 #include "behavior.hpp"
 #include "protocol.hpp"
 #include "connection.hpp"
@@ -26,9 +24,9 @@ class ConnectionManager : public Layer, public Disconnector{
 
     void new_connection(boost::asio::ip::tcp::socket &&s);
 
-    void inline send(const int, message::ZeroCopyBuffer &&) override;
-    void inline receive(const int, const char *, const size_t) override;
-    void inline disconnect(const int) override;
+    void send(const int, message::ZeroCopyBuffer &&) override;
+    void receive(const int, const char *, const size_t) override;
+    void disconnect(const int) override;
 
     Layer *upper;
 };

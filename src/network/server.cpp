@@ -77,6 +77,9 @@ void AsyncServer::start() {
   _acceptor.open(ep.protocol());
   _acceptor.bind(ep);
   _acceptor.listen();
+  // set local port
+  if(_socket.port == 0)
+      _socket.port = _acceptor.local_endpoint().port();
 
   // register callback
   do_accept();

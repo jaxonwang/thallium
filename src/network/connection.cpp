@@ -10,8 +10,8 @@
 #include "common.hpp"
 #include "heartbeat.hpp"
 #include "logging.hpp"
-#include "network.hpp"
 #include "protocol.hpp"
+#include "asio_type_wrapper.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
@@ -34,7 +34,7 @@ Connection::Connection(execution_context &_context, asio_tcp::socket &&_socket,
 }
 
 void Connection::when_header_received(const std::error_code &ec,
-                                      size_t bytes_read) {
+                                      size_t ) {
   if (ec) {
     if (ec.value() == asio::error::operation_aborted)
       TI_DEBUG(format("Socket {}: Read canceled.", socket_to_string()));

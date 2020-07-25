@@ -3,7 +3,6 @@
 
 #include "common.hpp"
 #include "io_loop.hpp"
-#include "network.hpp"
 #include "behavior.hpp"
 #include "protocol.hpp"
 #include "connection.hpp"

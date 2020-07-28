@@ -16,7 +16,7 @@ enum MessageType : u_int8_t {
     fail,
 };
 
-struct runtime_header{
+struct runtime_header {
     MessageType type;
 };
 
@@ -40,15 +40,16 @@ class Message {
 };
 
 class Firsconnection : public Message {
-    public:
+  public:
     FirstConCookie firstcookie;
     Firsconnection(const FirstConCookie cookie);
     Firsconnection(const std::string& cookie);
     message::ZeroCopyBuffer to_buffer() const override;
-    static Firsconnection from_buffer(const message::ReadOnlyBuffer &);
+    static Firsconnection from_buffer(const message::ReadOnlyBuffer&);
 };
 
-class FirsconnectionOK: public Message{
+class FirsconnectionOK : public Message {
+  public:
     message::ZeroCopyBuffer to_buffer() const override;
 };
 
@@ -59,7 +60,12 @@ namespace std {
 template <>
 struct hash<thallium::FirstConCookie> {
     std::size_t operator()(const thallium::FirstConCookie& c) const noexcept {
-        return *(std::size_t*)&c.data;  // or use boost::hash_combine
+        union {
+            size_t s;
+            u_int8_t bytes[sizeof(size_t)];
+        } ret;
+        std::copy(c.data, c.data + sizeof(size_t), ret.bytes);
+        return ret.s;
     }
 };
 }  // namespace std

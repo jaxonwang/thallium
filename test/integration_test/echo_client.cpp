@@ -20,7 +20,7 @@ static const string s = "sdafsdagfasl;dfka\n";
 
 class ClientImpl:public ClientModel{
 
-    void logic(int conn_id, const message::ReadOnlyBuffer & buf) override {
+    void logic(const int conn_id, const message::ReadOnlyBuffer & buf) override {
         string s1(buf.data(), buf.size());
         if(!(s == s1))
             cerr << "The Echoed is not the same!" << endl;

@@ -2,6 +2,7 @@
 #include "test.hpp" 
 #include "network/protocol.hpp" 
 
+using namespace std;
 using namespace thallium;
 using namespace thallium::message;
 
@@ -47,7 +48,7 @@ TEST(NetworkProtocol, BuildAndCast){
 
     struct t1{ int a; char b; unsigned short c;};
     t1 foo0{-1,'f', 33};
-    int foo1 = 1;
+    unsigned int foo1 = 0xffffffff;
     double pi = 3.14;
     char foo2 = 'k';
     unsigned int arr[123];
@@ -57,6 +58,7 @@ TEST(NetworkProtocol, BuildAndCast){
     long long foo3 = 5735873201498213;
 
     auto buf = message::build<message::ZeroCopyBuffer>(foo0, foo1, pi, foo2, arr, foo3);
+    ASSERT_EQ(buf.size(), sizeof(foo0) + sizeof(foo1) + sizeof(pi) + sizeof(foo2) + sizeof(arr) + sizeof(foo3));
     message::ReadOnlyBuffer b2(buf.data(), buf.size());
     t1 bar0;
     int bar1;
@@ -78,5 +80,43 @@ TEST(NetworkProtocol, BuildAndCast){
     ASSERT_EQ(ret, b2.size());
     char arr3[1234];
     ASSERT_THROW_WITH(message::cast(buf, foo0, arr3), "bad cast: destination size: 1234, availabe size: 513");
+
+    u_int32_t hafdf = 495121;
+    auto buf2 = message::build<message::ZeroCopyBuffer>(hafdf);
+    u_int32_t hafdf1;
+    message::cast(buf2, hafdf1);
+    ASSERT_EQ(hafdf1, hafdf);
+
+    for (int i = 0; i < 1234; i++) {
+        arr3[i] = i % 256;
+    }
+
+    message::ReadOnlyBuffer frombuf(arr3, 1234);
+
+    auto buf1 = message::build<message::ZeroCopyBuffer>(foo1, frombuf, foo3);
+
+    int baz1;
+    long long baz3;
+    message::ZeroCopyBuffer tobuf;
+    message::cast(buf1, baz1, tobuf, baz3);
+    ASSERT_EQ(tobuf.size(), 1234);
+    ASSERT_EQ(foo1, baz1);
+    for (int i = 0; i < 1234; i++) {
+        ASSERT_EQ(arr3[i], tobuf.data()[i]);
+    }
+    ASSERT_EQ(foo3, baz3);
+
+    auto buf3 = message::build<message::ZeroCopyBuffer>(frombuf, frombuf, frombuf);
+    message::ZeroCopyBuffer tobuf0;
+    message::ZeroCopyBuffer tobuf1;
+    message::ZeroCopyBuffer tobuf2;
+    message::cast(buf3, tobuf0, tobuf1, tobuf2);
+    for (int i = 0; i < 1234; i++) {
+        ASSERT_EQ(arr3[i], tobuf0.data()[i]);
+        ASSERT_EQ(arr3[i], tobuf1.data()[i]);
+        ASSERT_EQ(arr3[i], tobuf2.data()[i]);
+    }
+
+    ASSERT_THROW_WITH(message::cast(buf1, foo1, tobuf0, foo3, tobuf0), "bad cast: destination size: 4, availabe size: 0");
 
 }

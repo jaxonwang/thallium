@@ -37,7 +37,7 @@ class BasicModel : public Layer {
 
     void stop();
 
-    virtual void logic(int conn_id, const message::ReadOnlyBuffer &) = 0;
+    virtual void logic(const int conn_id, const message::ReadOnlyBuffer &) = 0;
 
     virtual void start(){};
 };

@@ -58,11 +58,13 @@ add_library(thallium STATIC ${src_files})
 target_link_libraries(thallium PRIVATE ${libraries_thallium_deps})
 
 # shared lib
-add_library(thallium_shared SHARED ${src_files})
-target_link_libraries(thallium_shared PRIVATE ${libraries_thallium_deps})
-if(${CMAKE_BUILD_TYPE} MATCHES Release AND ipo_enabled)
-    message(STATUS "IPO / LTO enabled")
-    set_property(TARGET thallium_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+if(${CMAKE_BUILD_TYPE} MATCHES Release)
+    add_library(thallium_shared SHARED ${src_files})
+    target_link_libraries(thallium_shared PRIVATE ${libraries_thallium_deps})
+    if(ipo_enabled)
+        message(STATUS "IPO / LTO enabled")
+        set_property(TARGET thallium_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
 endif()
 
 # header lib

@@ -163,7 +163,7 @@ void Connection::do_send_message(message::ZeroCopyBuffer &&msg) {
   // not logic after send success
   auto length = msg.size();
   // generate normal header
-  message::Header h{message::HeaderMessageType::normal, (uint32_t)length};
+  message::Header h{message::HeaderMessageType::normal, static_cast<uint32_t>(length)};
   // fill the header_buf
   message::ZeroCopyBuffer tmp_header_buf(message::header_size, 0);
   message::header_to_string(h, tmp_header_buf.data());

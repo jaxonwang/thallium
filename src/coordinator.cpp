@@ -77,32 +77,61 @@ vector<host_file_entry> read_host_file(const char *file_path) {
     return hosts;
 }
 
-class CoodinatorServer : public ServerModel {
+class CoordinatorServer : public ServerModel {
     typedef unordered_set<FirstConCookie> cookie_set;
     cookie_set cookies;
     unordered_map<int, PlaceObj> workers;
+    size_t worker_num;
+    void (CoordinatorServer::*current_state)(const int,
+                                            const message::ReadOnlyBuffer &);
 
   public:
-    CoodinatorServer(const size_t worker_size,
-                     const function<void(const cookie_set &)> &send_cookie) {
+    CoordinatorServer(const size_t worker_size,
+                     const function<void(const cookie_set &)> &send_cookie)
+        : worker_num(worker_size),
+          current_state(&CoordinatorServer::firstconnection) {
         for (size_t i = 0; i < worker_size; i++) {
             cookies.insert(FirstConCookie());
         }
         send_cookie(cookies);
     }
 
-    void logic(int conn_id, const message::ReadOnlyBuffer & buf) override {
-        if (read_header_messagetype(buf) == firstconnection) {
-            Firsconnection f = Firsconnection::from_buffer(buf);
-            if (cookies.count(f.firstcookie) == 0) {
-                TI_WARN("Recevied cookie illegal!");
-                disconnect(conn_id);
-            } else {
-                cookies.erase(f.firstcookie);
-                workers[conn_id] = PlaceObj(conn_id);
-            }
+    void logic(const int conn_id, const message::ReadOnlyBuffer &buf) override {
+        (this->*current_state)(conn_id, buf);
+    }
+
+    void error_state(const string &errmsg) { throw runtime_error(errmsg); }
+
+    void assert_message_type(const message::ReadOnlyBuffer &buf,
+                             MessageType expected) {
+        MessageType received = read_header_messagetype(buf);
+        if (received == expected) return;
+        string msg = format("Unexpected Message: expected {} but received {}",
+                            expected, received);
+        TI_FATAL(msg);
+        error_state(msg);
+    }
+
+    void firstconnection(const int conn_id,
+                         const message::ReadOnlyBuffer &buf) {
+        assert_message_type(buf, MessageType::firstconnection);
+        Firsconnection f = Firsconnection::from_buffer(buf);
+        if (cookies.count(f.firstcookie) == 0) {
+            TI_WARN("Recevied cookie illegal!");
+            disconnect(conn_id);
+        } else {
+            cookies.erase(f.firstcookie);
+            workers[conn_id] = PlaceObj(conn_id);
+            send(conn_id, FirsconnectionOK().to_buffer());
+        }
+        if (workers.size() == worker_num) {
+            current_state = &CoordinatorServer::peersinfo;
+            broadcast();
         }
     }
+
+    void broadcast() {}
+    void peersinfo(const int, const message::ReadOnlyBuffer &) {}
 };
 
 _THALLIUM_END_NAMESPACE

@@ -83,7 +83,7 @@ TEST(FunctionObjectTest, FunctionCall) {
     ASSERT_THROW_WITH(make_function_object(f3_)(bvs3),
                       "Function arguments arity doesnt match: given 5, need 6");
 
-    unique_ptr<int> p{new int[10]{}};
+    unique_ptr<int[]> p{new int[10]{}};
     BoxedValue ptr{move(p)};
 
     struct testsp {

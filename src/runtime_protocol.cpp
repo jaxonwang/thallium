@@ -58,7 +58,7 @@ FirstConCookie::FirstConCookie(const char* buf, const size_t length) {
     }
 }
 
-string FirstConCookie::to_printable() {
+string FirstConCookie::to_printable() const {
     string a(data_len * 2, '0');
     static const char* digits = "0123456789ABCDEF";
     for (size_t i = 0; i < data_len; i++) {
@@ -93,7 +93,7 @@ Firsconnection Firsconnection::from_buffer(const message::ReadOnlyBuffer& buf) {
 }
 
 message::ZeroCopyBuffer Firsconnection::to_buffer() const {
-    return message::build<message::ZeroCopyBuffer>(runtime_header{MessageType::firstconnectionok},
+    return message::build<message::ZeroCopyBuffer>(runtime_header{MessageType::firstconnection},
             firstcookie.data);
 }
 

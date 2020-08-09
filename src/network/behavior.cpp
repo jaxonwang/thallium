@@ -25,5 +25,9 @@ void ClientModel::start(){
     init_logic();
 }
 
+void ClientModel::send_to_server(message::ZeroCopyBuffer &&msg){
+    send(0, move(msg));
+}
+
 
 _THALLIUM_END_NAMESPACE

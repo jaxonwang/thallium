@@ -35,6 +35,7 @@ class BasicModel : public Layer {
 
     void disconnect(const int conn_id);
 
+    // neither server or client do close() in this operation
     void stop();
 
     virtual void logic(const int conn_id, const message::ReadOnlyBuffer &) = 0;
@@ -48,7 +49,35 @@ class ClientModel : public BasicModel {
     virtual void init_logic() = 0;
 
   public:
+    void send_to_server(message::ZeroCopyBuffer &&msg);
     void start() override;
+};
+
+template <class RealModel, class AbstractModel>
+class StateMachine: public AbstractModel {
+    RealModel &m_obj;
+    void (RealModel::*current_state)(const int, const message::ReadOnlyBuffer &);
+    typedef void (RealModel::*state_handler_t)(const int,
+                                           const message::ReadOnlyBuffer &);
+
+  public:
+    StateMachine(RealModel &m_obj, const state_handler_t start_state)
+        : m_obj(m_obj), current_state(start_state) {}
+    StateMachine(const StateMachine &) = delete;
+    StateMachine(StateMachine &&) = delete;
+    void run_state(const int conn_id, const message::ReadOnlyBuffer &buf) {
+        (m_obj.*current_state)(conn_id, buf);
+    }
+    void go_to_state(const state_handler_t next_state) {
+        current_state = next_state;
+    }
+    void error_state(const std::string &errmsg) {
+        throw std::runtime_error(errmsg);
+    }
+
+    void logic(const int conn_id, const message::ReadOnlyBuffer &buf) override {
+        run_state(conn_id, buf);
+    }
 };
 
 _THALLIUM_END_NAMESPACE

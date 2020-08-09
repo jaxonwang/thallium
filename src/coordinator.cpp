@@ -1,20 +1,15 @@
 #include "coordinator.hpp"
 
 #include <fstream>
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "common.hpp"
 #include "exception.hpp"
 #include "logging.hpp"
-#include "network/network.hpp"
-#include "place.hpp"
-#include "runtime_protocol.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
@@ -77,61 +72,66 @@ vector<host_file_entry> read_host_file(const char *file_path) {
     return hosts;
 }
 
-class CoordinatorServer : public ServerModel {
-    typedef unordered_set<FirstConCookie> cookie_set;
-    cookie_set cookies;
-    unordered_map<int, PlaceObj> workers;
-    size_t worker_num;
-    void (CoordinatorServer::*current_state)(const int,
-                                            const message::ReadOnlyBuffer &);
+// to lazy to write another class
+template <class StateMachine>
+void assert_message_type(StateMachine &s, const message::ReadOnlyBuffer &buf,
+                         MessageType expected) {
+    MessageType received = read_header_messagetype(buf);
+    if (received == expected) return;
+    string msg = format("Unexpected Message: expected {} but received {}",
+                        expected, received);
+    TI_FATAL(msg);
+    s.error_state(msg);
+}
 
-  public:
-    CoordinatorServer(const size_t worker_size,
-                     const function<void(const cookie_set &)> &send_cookie)
-        : worker_num(worker_size),
-          current_state(&CoordinatorServer::firstconnection) {
-        for (size_t i = 0; i < worker_size; i++) {
-            cookies.insert(FirstConCookie());
-        }
-        send_cookie(cookies);
+CoordinatorServer::CoordinatorServer(
+    const size_t worker_size,
+    const function<void(const cookie_set &)> &send_cookie)
+    : CoordServerBase(*this, &CoordinatorServer::firstconnection),
+      worker_num(worker_size) {
+    for (size_t i = 0; i < worker_size; i++) {
+        cookies.insert(FirstConCookie());
     }
+    send_cookie(cookies);
+}
 
-    void logic(const int conn_id, const message::ReadOnlyBuffer &buf) override {
-        (this->*current_state)(conn_id, buf);
+void CoordinatorServer::firstconnection(const int conn_id,
+                                        const message::ReadOnlyBuffer &buf) {
+    assert_message_type(*this, buf, MessageType::firstconnection);
+    Firsconnection f = Firsconnection::from_buffer(buf);
+    if (cookies.count(f.firstcookie) == 0) {
+        TI_WARN("Recevied cookie illegal!");
+        disconnect(conn_id);
+    } else {
+        cookies.erase(f.firstcookie);
+        workers[conn_id] = PlaceObj(conn_id);
+        TI_INFO(format("Worker {} registered.", conn_id));
+        send(conn_id, FirsconnectionOK().to_buffer());
     }
-
-    void error_state(const string &errmsg) { throw runtime_error(errmsg); }
-
-    void assert_message_type(const message::ReadOnlyBuffer &buf,
-                             MessageType expected) {
-        MessageType received = read_header_messagetype(buf);
-        if (received == expected) return;
-        string msg = format("Unexpected Message: expected {} but received {}",
-                            expected, received);
-        TI_FATAL(msg);
-        error_state(msg);
+    if (workers.size() == worker_num) {
+        TI_INFO("All worker registered.");
+        go_to_state(&CoordinatorServer::peersinfo);
+        broadcast();
+        stop();
     }
+}
 
-    void firstconnection(const int conn_id,
-                         const message::ReadOnlyBuffer &buf) {
-        assert_message_type(buf, MessageType::firstconnection);
-        Firsconnection f = Firsconnection::from_buffer(buf);
-        if (cookies.count(f.firstcookie) == 0) {
-            TI_WARN("Recevied cookie illegal!");
-            disconnect(conn_id);
-        } else {
-            cookies.erase(f.firstcookie);
-            workers[conn_id] = PlaceObj(conn_id);
-            send(conn_id, FirsconnectionOK().to_buffer());
-        }
-        if (workers.size() == worker_num) {
-            current_state = &CoordinatorServer::peersinfo;
-            broadcast();
-        }
-    }
+void CoordinatorServer::broadcast() {}
+void CoordinatorServer::peersinfo(const int, const message::ReadOnlyBuffer &) {}
 
-    void broadcast() {}
-    void peersinfo(const int, const message::ReadOnlyBuffer &) {}
-};
+WorkerDeamon::WorkerDeamon(const string &cookie)
+    : WkDeamonBase(*this, &WorkerDeamon::firstconnection_ok),
+      fc_cookie(cookie) {}
+
+void WorkerDeamon::init_logic() {
+    send_to_server(Firsconnection(fc_cookie).to_buffer());
+}
+void WorkerDeamon::firstconnection_ok(const int conn_id,
+                                      const message::ReadOnlyBuffer &buf) {
+    assert_message_type(*this, buf, MessageType::firstconnectionok);
+    TI_INFO("Successfully connected to the coordinator.");
+    disconnect(conn_id);
+    stop();
+}
 
 _THALLIUM_END_NAMESPACE

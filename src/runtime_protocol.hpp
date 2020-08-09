@@ -29,7 +29,7 @@ class FirstConCookie {
     FirstConCookie();
     FirstConCookie(const std::string& printable);
     FirstConCookie(const char* buf, const size_t length);
-    std::string to_printable();
+    std::string to_printable() const;
     bool operator==(const FirstConCookie& other) const;
 };
 
@@ -51,6 +51,15 @@ class Firsconnection : public Message {
 class FirsconnectionOK : public Message {
   public:
     message::ZeroCopyBuffer to_buffer() const override;
+};
+
+class Peerinfo: public Message{
+    public:
+        std::string address;
+        unsigned short port;
+        Peerinfo(const std::string &address, const unsigned short port);
+        message::ZeroCopyBuffer to_buffer() const override;
+        static Firsconnection from_buffer(const message::ReadOnlyBuffer&);
 };
 
 _THALLIUM_END_NAMESPACE

@@ -46,6 +46,7 @@ class ZeroCopyBuffer : public CopyableBuffer {
 };
 
 class ReadOnlyBuffer {
+    // caution! this does not manage the life time of under-lying buffer!
     typedef size_t size_type;
     typedef char value_type;
     const char *const buf;

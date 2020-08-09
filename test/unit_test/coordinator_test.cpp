@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "test.hpp"
+#include "logging.hpp"
 
 using namespace thallium;
 using namespace thallium::ti_exception;
@@ -63,4 +64,55 @@ TEST(Host, ReadHostFile) {
     for (int i = 0; i < (int)ret.size(); i++) {
        ASSERT_EQ(ret[i], entries[i]);
     }
+}
+
+TEST(Coordinator, Register) {
+    logging_init(1);
+
+    typedef std::unordered_set<FirstConCookie> cookie_set;
+    cookie_set cookies;
+
+    auto set_cookies = function<void(const cookie_set&)>{[&](const cookie_set &c_s){
+        cookies = c_s;
+    }};
+
+    atomic_int server_port;
+    atomic_bool ready{false};
+
+    int worker_size = 5;
+
+    auto run_server = [&]() {
+        execution_context ctx{1};
+        std::error_code ec;
+        ti_socket_t skt = {0, resolve("127.0.0.1", ec)};
+        AsyncServer s{ctx, skt};
+        CoordinatorServer s_impl(worker_size, set_cookies);
+        RunServer(s_impl, s);
+        server_port.store(s.server_socket().port);
+        ready.store(true);
+        ctx.run();
+    };
+
+    auto run_client  = [&](const string & cookie){
+        execution_context ctx{1};
+        int p = server_port.load();
+        AsyncClient c(ctx, "127.0.0.1", p);
+        WorkerDeamon c_impl(cookie);
+        RunClient(c_impl, c);
+        ctx.run();
+    };
+
+    thread t_server{run_server};
+    while (!ready.load()) {
+    }  // spin util cookies are set
+    vector<thread> clients;
+    for(auto & c: cookies){
+        clients.push_back(thread{run_client, c.to_printable()});
+    }
+    t_server.join();
+    for(auto &t: clients){
+        t.join();
+    }
+
+    logging_init(0);
 }

@@ -90,6 +90,17 @@ class span {
     size_type size_;  // exposition only
 };
 
+template <class ElementType, size_t Extent>
+class static_span: public span<ElementType>{
+    public:
+    constexpr static size_t extent = Extent;
+    constexpr static_span(ElementType (&arr)[extent]) noexcept : span<ElementType>(arr){}
+    constexpr static_span(std::array<ElementType, extent>& arr) noexcept : span<ElementType>(arr){}
+    constexpr static_span(const std::array<ElementType, extent>& arr) noexcept :span<ElementType>(arr){}
+    constexpr static_span(static_span&& other) noexcept = default;
+    constexpr static_span(const static_span& other) noexcept = default;
+};
+
 template<class T>
 struct deref_type{
     using type = typename std::remove_reference<decltype(*std::declval<T>())>::type;
@@ -114,8 +125,28 @@ constexpr span<T> make_span(T (&arr)[N]) {
 }
 
 template <class CharT>
-constexpr span<const CharT> make_span(std::basic_string<CharT> &s) {
-    return span<const CharT>(s.c_str(), s.size());
+constexpr span<CharT> make_span(std::basic_string<CharT> &s) {
+    return span<CharT>(&s[0], s.size());
+}
+
+template <class CharT>
+constexpr span<const CharT> make_span(const std::basic_string<CharT> &s) {
+    return span<const CharT>(&s[0], s.size());
+}
+
+template <class T, size_t N>
+constexpr static_span<T, N> make_static_span(T (&arr)[N]) {
+    return static_span<T, N>(arr);
+}
+
+template <class T, size_t N>
+constexpr static_span<T, N> make_static_span(std::array<T,N> &arr) {
+    return static_span<T, N>(arr);
+}
+
+template <class T, size_t N>
+constexpr static_span<const T, N> make_static_span(const std::array<T,N> &arr) {
+    return static_span<const T, N>(arr);
 }
 
 }  // namespace gsl

@@ -46,6 +46,12 @@ TEST(Span, Constructor) {
         ASSERT_EQ(s_s[i], s[i]);
     }
 
+    const string s1{"abcdefghijk"};
+    auto s_s1 = gsl::make_span(s1);
+    for (size_t i = 0; i < s_s1.size(); i++) {
+        ASSERT_EQ(s_s[i], s[i]);
+    }
+
     const size_t len = 20;
     int v4[len];
     std::array<int, len> v4_arr;
@@ -56,9 +62,8 @@ TEST(Span, Constructor) {
     fun_using_span<int>(v4, v4_arr);
 }
 
-TEST(Span, Operation){
-    vector<int> v1{1, 2, 3, 4, 5};
-    auto s_v1 = gsl::make_span(v1.data(), v1.size());
+template<class T>
+void span_op_test(T s_v1){
     ASSERT_EQ(s_v1.size_bytes(), 5 * sizeof(int));
     auto sub_s = s_v1.first(3);
     ASSERT_EQ(sub_s.size(), 3);
@@ -84,5 +89,20 @@ TEST(Span, Operation){
     ASSERT_EQ(s_v1.front(), 1);
     ASSERT_EQ(s_v1.back(), 5);
     ASSERT_EQ(&s_v1.front(), s_v1.data());
-    
+}
+
+
+TEST(Span, Operation){
+    vector<int> v1{1, 2, 3, 4, 5};
+    auto s_v1 = gsl::make_span(v1.data(), v1.size());
+    span_op_test(s_v1);
+}
+
+TEST(Span, StaticSpan){
+    int v1[]{1, 2, 3, 4, 5};
+    auto s_v1 = gsl::make_static_span(v1);
+    span_op_test(s_v1);
+    const std::array<const int, 3> a1{1,3,4};
+    auto ha = gsl::make_static_span(a1);
+    ASSERT_EQ(ha.size(), 3);
 }

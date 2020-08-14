@@ -44,6 +44,10 @@ TEST(Span, Constructor) {
     auto s_s = gsl::make_span(s);
     for (size_t i = 0; i < s_s.size(); i++) {
         ASSERT_EQ(s_s[i], s[i]);
+        s_s[i] = 'z';
+    }
+    for (size_t i = 0; i < s_s.size(); i++) {
+        ASSERT_EQ(s_s[i], 'z');
     }
 
     const string s1{"abcdefghijk"};

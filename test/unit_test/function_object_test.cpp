@@ -1,28 +1,36 @@
 
+#include "function_object.hpp"
+
 #include <memory>
 #include <string>
 
 #include "test.hpp"
 #include "thallium.hpp"
-#include "function_object.hpp"
 
 using namespace thallium;
+using namespace thallium::Serializer;
 
 TEST(FunctionObjectTest, DeSerializeArgumentsTemplateFunction) {
     auto s = thallium::FunctionSingnature<int(int, float, double)>{};
-    auto bvs =
-        s.deSerializeArguments(std::vector<std::string>{"2", "3.14", "5.453"});
+    auto bvs = s.deSerializeArguments(
+        std::vector<std::string>{create_string(2), create_string<float>(3.14),
+                                 create_string<double>(5.453)});
     ASSERT_TRUE(*BoxedValue::boxCast<int>(bvs[0]) == 2);
     ASSERT_TRUE(*BoxedValue::boxCast<float>(bvs[1]) == (float)3.14);
     ASSERT_TRUE(*BoxedValue::boxCast<double>(bvs[2]) == (double)5.453);
 
     auto s1 = thallium::FunctionSingnature<int(int, float, double, std::string,
                                                long double)>{};
-    ASSERT_THROW_WITH(
-        s1.deSerializeArguments(std::vector<std::string>{"1", "2", "3", "4"}),
-        "Function arguments arity doesnt match: given 4, need 5");
+    auto str0 = create_string(1);
+    auto str1 = create_string<float>(1.0);
+    auto str2 = create_string<double>(1.0);
+    auto str3 = create_string(string{"1234"});
+    auto str4 = create_string<long double>(1.0);
+    ASSERT_THROW_WITH(s1.deSerializeArguments(
+                          std::vector<std::string>{str0, str1, str2, str3}),
+                      "Function arguments arity doesnt match: given 4, need 5");
     ASSERT_THROW_WITH(s1.deSerializeArguments(std::vector<std::string>{
-                          "1", "2", "3", "4", "5", "6"}),
+                          str0, str1, str2, str3, str4, str4}),
                       "Function arguments arity doesnt match: given 6, need 5");
 }
 
@@ -128,12 +136,12 @@ int funtest(int a) { return a + 1; }
 TEST(FinishTest, FinishSuger) {
     auto bs_ptr = BuffersPtr{new Buffers{"123", "321", "1234567"}};
     for (FinishSugar i{}; i.once; i.once = false) {
-        AsyncExecManager::get().submitExecution(
-            this_host, function_id(funtest), move(bs_ptr));
-        AsyncExecManager::get().submitExecution(
-            this_host, function_id(funtest), move(bs_ptr));
-        AsyncExecManager::get().submitExecution(
-            this_host, function_id(funtest), move(bs_ptr));
+        AsyncExecManager::get().submitExecution(this_host, function_id(funtest),
+                                                move(bs_ptr));
+        AsyncExecManager::get().submitExecution(this_host, function_id(funtest),
+                                                move(bs_ptr));
+        AsyncExecManager::get().submitExecution(this_host, function_id(funtest),
+                                                move(bs_ptr));
     }
     ASSERT_THROW(AsyncExecManager::get().submitExecution(
                      this_host, function_id(funtest), move(bs_ptr)),

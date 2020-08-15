@@ -15,20 +15,7 @@ typedef std::string Buffer;
 using Buffers = std::vector<std::string>;
 using BuffersPtr = std::unique_ptr<Buffers>;
 
-template <typename T>
-std::string my_serialized_method(
-    T &a) {  // TODO: user implement serialization api
-    return to_string(a);
-}
-
-std::string my_serialized_method(std::string &a);
-
 namespace Serializer {  // TODO rename to serializer
-
-template <class T>
-std::string serialize(T t) {
-    return my_serialized_method(t);  // TODO
-}
 
 template <class ConcreteArchive>
 class SaveArchive {
@@ -282,24 +269,26 @@ size_t real_size(T) {
     return sizeof(T);
 }
 
+// below is used by boxedvalue and submitter
+template <class T>
+T create_from_string(const std::string &s){
+    StringLoadArchive la{s};
+    T t;
+    la >> t;
+    return t;
+}
+
+template <class T>
+std::string create_string(const T &t){
+    StringSaveArchive sa;
+    sa << t;
+    return sa.build();
+}
+
 template <class... ArgTypes>
 BuffersPtr serializeList(const ArgTypes &... args) {
-    return BuffersPtr{new Buffers{my_serialized_method(args)...}};
+    return BuffersPtr{new Buffers{create_string(args)...}};
 }
-template <class T>
-T deSerialize(std::string s) {  // TODO remove default, use template declaration
-    return static_cast<T>(s);
-}
-template <>
-int deSerialize<int>(std::string s);
-template <>
-double deSerialize<double>(std::string s);
-template <>
-long double deSerialize<long double>(std::string s);
-template <>
-float deSerialize<float>(std::string s);
-template <>
-char deSerialize<char>(std::string s);
 
 }  // namespace Serializer
 

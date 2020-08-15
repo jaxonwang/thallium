@@ -159,7 +159,7 @@ class Coordinator {
     template <class Ret>
     static Ret getReturnValue(const Execution::ExeId e_id) {
         Buffer ret = BlockedExecManager::get().wait(e_id);
-        return Serializer::deSerialize<Ret>(ret);
+        return Serializer::create_from_string<Ret>(ret);
     }
 
     // unblocked submit

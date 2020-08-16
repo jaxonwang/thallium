@@ -166,6 +166,7 @@ TEST(Serialize, Vector) {
     sa << v1;
     sa << v_c1;
     string s = sa.build();
+    ASSERT_EQ(real_size(v_i1) + real_size(v1) + real_size(v_c1), s.size());
     StringLoadArchive la{s};
     la >> v_i2;
     la >> v2;

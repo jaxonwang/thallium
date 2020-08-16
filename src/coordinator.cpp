@@ -106,7 +106,7 @@ void CoordinatorServer::firstconnection(const int conn_id,
         cookies.erase(f.firstcookie);
         workers[conn_id] = PlaceObj(conn_id);
         TI_INFO(format("Worker {} registered.", conn_id));
-        send(conn_id, FirsconnectionOK().to_buffer());
+        send(conn_id, to_buffer<FirsconnectionOK>(FirsconnectionOK()));
     }
     if (workers.size() == worker_num) {
         TI_INFO("All worker registered.");

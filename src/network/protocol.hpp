@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "serialize.hpp"
 #include "utils.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
@@ -32,9 +33,6 @@ struct Body {
 typedef std::vector<char> CopyableBuffer;
 
 class ZeroCopyBuffer : public CopyableBuffer {
-    typedef CopyableBuffer::size_type size_type;
-    typedef CopyableBuffer::value_type value_type;
-
   public:
     ZeroCopyBuffer() : CopyableBuffer(){};
     ZeroCopyBuffer(size_type, value_type = size_type());
@@ -43,6 +41,8 @@ class ZeroCopyBuffer : public CopyableBuffer {
     ZeroCopyBuffer(ZeroCopyBuffer &&);
     ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
     CopyableBuffer &to_copyable();
+    // note: can directly be serializable because it is a vector, otherwise need to
+    // rewrite this
 };
 
 class ReadOnlyBuffer {
@@ -63,6 +63,11 @@ class ReadOnlyBuffer {
         : buf(buf), buflen(length) {}
     size_type size() const { return buflen; }
     const value_type *data() const { return buf; }
+    template <class Archive>
+    void serializable(Archive &ar) {
+        auto sp = gsl::span<const char>(buf, buflen);
+        ar &sp;
+    }
 };
 
 inline void _rest_at_least(size_t rest, size_t at_least) {
@@ -71,93 +76,105 @@ inline void _rest_at_least(size_t rest, size_t at_least) {
             format("bad cast: destination size: {}, availabe size: {}",
                    at_least, rest));
 }
+}  // namespace message
 
-template <class Buffer, class Arg>
-size_t _cast_one(const Buffer &buf, const size_t offset, Arg &arg) {
-    static_assert(std::is_standard_layout<tl_remove_cvref<Arg>>::value,
-                  "Type should be standerd layout!");
-    _rest_at_least(buf.size() - offset, sizeof(arg));
-
-    const char *start = buf.data() + offset;
-    std::copy(start, start + sizeof(arg), (char *)&arg);
-    return offset + sizeof(Arg);
-}
+namespace Serializer {
 
 template <class Buffer>
-size_t _cast_one(const Buffer &buf, const size_t offset, ZeroCopyBuffer &varlen) {
-    // will introduce a copy, manually cast to a var len
-    // type if we want to avoid the copy;
-    _rest_at_least(buf.size() - offset, sizeof(u_int32_t));
-    u_int32_t len32;
-    size_t next = _cast_one(buf, offset, len32);
+class FixSizeBufferSavingArchive
+    : public SaveArchive<FixSizeBufferSavingArchive<Buffer>> {
+  private:
+    Buffer &_buf;
+    const size_t _buf_size;
+    char *buf_begin;
+    char *save_cursor;
 
-    size_t length = static_cast<size_t>(len32);
-    _rest_at_least(buf.size() - offset, length + sizeof(u_int32_t));
-    const char * start = buf.data() + next;
-
-    varlen.resize(length);
-    std::copy(start, start + length, varlen.data());
-    return offset + sizeof(u_int32_t) + length;
-}
+  public:
+    FixSizeBufferSavingArchive(Buffer &buf)
+        : _buf(buf),
+          _buf_size(_buf.size()),
+          buf_begin(_buf.data()),
+          save_cursor(buf_begin) {}
+    char *get_save_cursor(const size_t num) {
+        char *ret = save_cursor;
+        char *result = save_cursor + num;
+        if (result > _buf_size + buf_begin) {
+            throw std::runtime_error(format(
+                "Internal buf not big enough to hold {} size value.", num));
+        }
+        save_cursor = result;
+        return ret;
+    }
+    size_t size() const { return save_cursor - buf_begin; }
+};
 
 template <class Buffer>
-size_t _cast(const Buffer &, const size_t offset) {
-    return offset;
+class FixSizeBufferLoadingArchive
+    : public LoadArchive<FixSizeBufferLoadingArchive<Buffer>> {
+  private:
+    const Buffer &_buf;
+    const size_t _buf_size;
+    const char *buf_begin;
+    const char *load_cursor;
+
+  public:
+    FixSizeBufferLoadingArchive(const Buffer &buf)
+        : _buf(buf),
+          _buf_size(_buf.size()),
+          buf_begin(_buf.data()),
+          load_cursor(buf_begin) {}
+    const char *get_load_cursor(size_t num) {
+        const char *ret = load_cursor;
+        const char *result = load_cursor + num;
+        if (result > _buf_size + buf_begin) {
+            throw std::runtime_error(format(
+                "Remaining buf (size: {}) not enough to convert {} size value.",
+                _buf_size + buf_begin - load_cursor, num));
+        }
+        load_cursor = result;
+
+        return ret;
+    }
+    size_t size() const { return load_cursor - buf_begin; }
+};
+
+}  // namespace Serializer
+
+namespace message {
+
+template <class Archive>
+size_t _cast(Archive &ar) {
+    return ar.size();
 }
 
-template <class Buffer, class Arg, class... Args>
-size_t _cast(const Buffer &buf, const size_t offset, Arg &arg, Args &... args) {
-    size_t next_offset = _cast_one(buf, offset, arg);
-    return _cast(buf, next_offset, args...);
+template <class Archive, class Arg, class... Args>
+size_t _cast(Archive &ar, Arg &arg, Args &... args) {
+    ar >> arg;
+    return _cast(ar, args...);
 }
 
 template <class Buffer, class... Args>
 size_t cast(const Buffer &buf, Args &... args) {  // return the pos for next use
-    return _cast(buf, 0, args...);
+    Serializer::FixSizeBufferLoadingArchive<Buffer> arcv{buf};
+    return _cast(arcv, args...);
 }
 
-template <class Buffer, class Arg>
-size_t _build_one(Buffer &buf, const size_t offset, const Arg &arg){
-    static_assert(std::is_standard_layout<tl_remove_cvref<Arg>>::value,
-                  "Type should be standerd layout!");
-    std::copy((char *)&arg, (char *)&arg + sizeof(arg), buf.data() + offset);
-    return offset + sizeof(arg);
-}
-
-template <class Buffer>
-size_t _build_one(Buffer &buf, const size_t offset, const ReadOnlyBuffer &varlen){
-    u_int32_t len32 = static_cast<u_int32_t>(varlen.size());
-    size_t next_offset = _build_one(buf, offset, len32);
-    std::copy(varlen.data(), varlen.data() + varlen.size(),
-              buf.data() + next_offset);
-    next_offset += varlen.size();
-    return next_offset;
-}
-
-template <class Buffer, class Arg, class... Args>
-void _build(Buffer &buf, const size_t offset, Arg &&arg, Args &&... args) {
-    size_t next_offset = _build_one(buf, offset, arg);
-    _build(buf, next_offset, std::forward<Args>(args)...);
-}
-
-template <class Buffer>
-void _build(Buffer &, const size_t) {
+template <class Archive>
+void _build(Archive &) {
     return;
 }
 
-template <class T>
-inline size_t _type_size(const T & t){
-    return sizeof(t);
-}
-
-inline size_t _type_size(const ReadOnlyBuffer &buf){
-    return sizeof(u_int32_t) + buf.size(); // with 4 bytes to specify length
+template <class Archive, class Arg, class... Args>
+void _build(Archive &ar, Arg &&arg, Args &&... args) {
+    ar << arg;
+    _build(ar, std::forward<Args>(args)...);
 }
 
 template <class Buffer, class... Args>
 Buffer build(Args &&... args) {  // from POD to buf
-    Buffer buf(variadic_sum(_type_size(args)...), 0);
-    _build(buf, 0, std::forward<Args>(args)...);
+    Buffer buf(variadic_sum(Serializer::real_size(args)...), 0);
+    Serializer::FixSizeBufferSavingArchive<Buffer> arcv{buf};
+    _build(arcv, std::forward<Args>(args)...);
     return buf;
 }
 

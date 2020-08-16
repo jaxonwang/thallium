@@ -1,13 +1,12 @@
 
-#include "test.hpp" 
-#include "network/protocol.hpp" 
+#include "network/protocol.hpp"
+#include "test.hpp"
 
 using namespace std;
 using namespace thallium;
 using namespace thallium::message;
 
-TEST(NetworkProtocol, HeaderTest){
-
+TEST(NetworkProtocol, HeaderTest) {
     Header h2{HeaderMessageType::heartbeat, 321432};
 
     char buf[header_size];
@@ -16,11 +15,9 @@ TEST(NetworkProtocol, HeaderTest){
 
     ASSERT_EQ(h1.msg_type, h2.msg_type);
     ASSERT_EQ(h1.body_length, h2.body_length);
-
 }
 
-TEST(NetworkProtocol, ZeroCopyBuffer){
-
+TEST(NetworkProtocol, ZeroCopyBuffer) {
     ZeroCopyBuffer b{64, 1};
     ASSERT_EQ(b.size(), 64);
     for (size_t i = 0; i < b.size(); i++) {
@@ -28,7 +25,7 @@ TEST(NetworkProtocol, ZeroCopyBuffer){
         ASSERT_EQ(b.data()[i], 1);
     }
 
-    CopyableBuffer & cb = b.to_copyable();
+    CopyableBuffer& cb = b.to_copyable();
     CopyableBuffer cb1 = cb;
 
     ASSERT_EQ(cb1.size(), 64);
@@ -44,10 +41,18 @@ TEST(NetworkProtocol, ZeroCopyBuffer){
     }
 }
 
-TEST(NetworkProtocol, BuildAndCast){
+struct t1 {
+    int a;
+    char b;
+    unsigned short c;
+    template <class A>
+    void serializable(A& ar) {
+        ar& a& b& c;
+    }
+};
 
-    struct t1{ int a; char b; unsigned short c;};
-    t1 foo0{-1,'f', 33};
+TEST(NetworkProtocol, BuildAndCast) {
+    t1 foo0{-1, 'f', 33};
     unsigned int foo1 = 0xffffffff;
     double pi = 3.14;
     char foo2 = 'k';
@@ -57,8 +62,11 @@ TEST(NetworkProtocol, BuildAndCast){
     }
     long long foo3 = 5735873201498213;
 
-    auto buf = message::build<message::ZeroCopyBuffer>(foo0, foo1, pi, foo2, arr, foo3);
-    ASSERT_EQ(buf.size(), sizeof(foo0) + sizeof(foo1) + sizeof(pi) + sizeof(foo2) + sizeof(arr) + sizeof(foo3));
+    auto buf = message::build<message::ZeroCopyBuffer>(foo0, foo1, pi, foo2,
+                                                       arr, foo3);
+    ASSERT_EQ(buf.size(), Serializer::real_size(foo0) + sizeof(foo1) +
+                              sizeof(pi) + sizeof(foo2) + sizeof(arr) +
+                              sizeof(foo3));
     message::ReadOnlyBuffer b2(buf.data(), buf.size());
     t1 bar0;
     int bar1;
@@ -75,11 +83,13 @@ TEST(NetworkProtocol, BuildAndCast){
     ASSERT_EQ(foo2, bar2);
     ASSERT_EQ(foo3, bar3);
     for (int i = 0; i < 123; i++) {
-       ASSERT_EQ(arr[i], arr1[i]);
+        ASSERT_EQ(arr[i], arr1[i]);
     }
     ASSERT_EQ(ret, b2.size());
     char arr3[1234];
-    ASSERT_THROW_WITH(message::cast(buf, foo0, arr3), "bad cast: destination size: 1234, availabe size: 513");
+    ASSERT_THROW_WITH(
+        message::cast(buf, foo0, arr3),
+        "Remaining buf (size: 513) not enough to convert 1234 size value.");
 
     u_int32_t hafdf = 495121;
     auto buf2 = message::build<message::ZeroCopyBuffer>(hafdf);
@@ -106,7 +116,8 @@ TEST(NetworkProtocol, BuildAndCast){
     }
     ASSERT_EQ(foo3, baz3);
 
-    auto buf3 = message::build<message::ZeroCopyBuffer>(frombuf, frombuf, frombuf);
+    auto buf3 =
+        message::build<message::ZeroCopyBuffer>(frombuf, frombuf, frombuf);
     message::ZeroCopyBuffer tobuf0;
     message::ZeroCopyBuffer tobuf1;
     message::ZeroCopyBuffer tobuf2;
@@ -117,6 +128,6 @@ TEST(NetworkProtocol, BuildAndCast){
         ASSERT_EQ(arr3[i], tobuf2.data()[i]);
     }
 
-    ASSERT_THROW_WITH(message::cast(buf1, foo1, tobuf0, foo3, tobuf0), "bad cast: destination size: 4, availabe size: 0");
-
+    ASSERT_THROW_WITH(message::cast(buf1, foo1, tobuf0, foo3, tobuf0),
+            "Remaining buf (size: 0) not enough to convert 8 size value.");
 }

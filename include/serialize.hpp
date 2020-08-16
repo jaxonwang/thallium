@@ -181,7 +181,13 @@ struct has_serializable_member {
         fake_archive &operator&(T &) { return *this; }
     };
     template <class U>
-    static char test(decltype(&U::template serializable<fake_archive>));
+    using _function_t = decltype(&U::template serializable<fake_archive>);
+    template <class U>
+    using is_correct_t = typename std::enable_if<
+        std::is_same<_function_t<U>, void (U::*)(fake_archive &)>::value,
+        int>::type;
+    template <class U>
+    static char test(is_correct_t<U>);
     template <class>
     static u_int64_t test(...);
     constexpr static bool value = sizeof(test<T>(0)) == 1;
@@ -267,8 +273,10 @@ template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
                                            int>::type = 0>
 constexpr size_t real_size(const T &);
 
-template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
-                                           int>::type = 0>
+template <
+    class T,
+    typename std::enable_if<!is_trivially_serializable<T>::value, int>::type=0,
+    typename std::enable_if<has_serializable_member<T>::value, int>::type=0>
 size_t real_size(const T &t);
 
 template <
@@ -325,8 +333,10 @@ constexpr size_t real_size(const std::string &s) {
     return s.size() * sizeof(char) + sizeof(size_t);
 }
 
-template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
-                                           int>::type>
+template <
+    class T,
+    typename std::enable_if<!is_trivially_serializable<T>::value, int>::type,
+    typename std::enable_if<has_serializable_member<T>::value, int>::type>
 size_t real_size(const T &t) {
     SizeArchive sz_a;
     const_cast<T &>(t).serializable(sz_a);

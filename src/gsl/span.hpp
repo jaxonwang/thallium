@@ -91,30 +91,42 @@ class span {
 };
 
 template <class ElementType, size_t Extent>
-class static_span: public span<ElementType>{
-    public:
+class static_span : public span<ElementType> {
+  public:
+    using element_type = ElementType;
+    using size_type = size_t;
     constexpr static size_t extent = Extent;
-    constexpr static_span(ElementType (&arr)[extent]) noexcept : span<ElementType>(arr){}
-    constexpr static_span(std::array<ElementType, extent>& arr) noexcept : span<ElementType>(arr){}
-    constexpr static_span(const std::array<ElementType, extent>& arr) noexcept :span<ElementType>(arr){}
+    constexpr static_span(ElementType (&arr)[extent]) noexcept
+        : span<ElementType>(arr) {}
+    constexpr static_span(std::array<ElementType, extent>& arr) noexcept
+        : span<ElementType>(arr) {}
+    constexpr static_span(const std::array<ElementType, extent>& arr) noexcept
+        : span<ElementType>(arr) {}
     constexpr static_span(static_span&& other) noexcept = default;
     constexpr static_span(const static_span& other) noexcept = default;
+
+    constexpr size_type size() const noexcept { return Extent; }
+    constexpr size_type size_bytes() const noexcept {
+        return Extent * sizeof(element_type);
+    }
+    constexpr bool empty() const noexcept { return Extent == 0; }
 };
 
-template<class T>
-struct deref_type{
-    using type = typename std::remove_reference<decltype(*std::declval<T>())>::type;
+template <class T>
+struct deref_type {
+    using type =
+        typename std::remove_reference<decltype(*std::declval<T>())>::type;
 };
 
-template<class T>
+template <class T>
 using deref_type_t = typename deref_type<T>::type;
 
-template<class It>
+template <class It>
 constexpr span<deref_type_t<It>> make_span(It first, const size_t count) {
     return span<deref_type_t<It>>(first, count);
 }
 
-template<class It, class End>
+template <class It, class End>
 constexpr span<deref_type_t<It>> make_span(It first, End last) {
     return span<deref_type_t<It>>(first, last);
 }
@@ -124,14 +136,15 @@ constexpr span<T> make_span(T (&arr)[N]) {
     return span<T>(arr);
 }
 
-template <class CharT>
-constexpr span<CharT> make_span(std::basic_string<CharT> &s) {
-    return span<CharT>(&s[0], s.size());
-}
-
-template <class CharT>
-constexpr span<const CharT> make_span(const std::basic_string<CharT> &s) {
-    return span<const CharT>(&s[0], s.size());
+// This is for vector and string, linear storage container
+template <class Linear,
+          class _T = typename Linear::value_type,  // test has value_type here
+          class T = typename std::conditional<std::is_const<Linear>::value,
+                                              const _T, _T>::type>
+span<T> make_span(Linear& s) {
+    T * start_ptr = nullptr;
+    if (s.size() != 0) start_ptr = &s[0];
+    return span<T>(start_ptr, s.size());
 }
 
 template <class T, size_t N>
@@ -140,12 +153,13 @@ constexpr static_span<T, N> make_static_span(T (&arr)[N]) {
 }
 
 template <class T, size_t N>
-constexpr static_span<T, N> make_static_span(std::array<T,N> &arr) {
+constexpr static_span<T, N> make_static_span(std::array<T, N>& arr) {
     return static_span<T, N>(arr);
 }
 
 template <class T, size_t N>
-constexpr static_span<const T, N> make_static_span(const std::array<T,N> &arr) {
+constexpr static_span<const T, N> make_static_span(
+    const std::array<T, N>& arr) {
     return static_span<const T, N>(arr);
 }
 

@@ -174,3 +174,45 @@ TEST(Serialize, Vector) {
     ASSERT_EQ(v_i1, v_i2);
     ASSERT_EQ(v_c1, v_c2);
 }
+
+TEST(Serializer, RealSize) {
+    long long a = 1;
+    ASSERT_EQ(sizeof(a), real_size(a));
+
+    double b[28];
+    ASSERT_EQ(sizeof(b), real_size(b));
+
+    class ToBeTest t;
+    size_t class_size = real_size(t);
+    size_t expected = sizeof(bool) + sizeof(short) + sizeof(char) +
+                      sizeof(int) + sizeof(long) + sizeof(float) +
+                      sizeof(double) + sizeof(long double) + sizeof(long long);
+    expected += real_size(Inner());
+    ASSERT_EQ(class_size, expected);
+
+    const size_t size_t_size = sizeof(size_t);
+
+    const ToBeTest ts[13]{};
+    ASSERT_EQ(real_size(ts), 13 * class_size);
+
+    const string s{"1234567"};
+    ASSERT_EQ(real_size(s), 7 + size_t_size);
+
+    auto sp1 = gsl::make_span(b);
+    ASSERT_EQ(real_size(sp1), sizeof(b) + size_t_size);
+
+    auto sp2 = gsl::make_span(ts);
+    ASSERT_EQ(real_size(sp2), expected * 13 + size_t_size);
+
+    const vector<int> v1 = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    ASSERT_EQ(real_size(v1), sizeof(int) * 9 + size_t_size);
+
+    vector<string> v2;
+    size_t v2_len = 12;
+    for (long long i = 1, m = 1; i <= static_cast<long long>(v2_len); i++) {
+        v2.push_back(to_string(m));
+        m *= 10;
+    }
+    ASSERT_EQ(real_size(v2), (1 + v2_len) * v2_len / 2 * sizeof(char) +
+                                 v2_len * size_t_size + size_t_size);
+}

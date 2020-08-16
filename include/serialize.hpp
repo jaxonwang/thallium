@@ -36,16 +36,16 @@ class LoadArchive {
 };
 
 template <class Archive>
-inline void assert_is_savearchive() {
-    static_assert(std::is_base_of<SaveArchive<Archive>, Archive>::value,
-                  "Must be save archive!");
-}
+struct is_savearchive {
+    constexpr static bool value =
+        std::is_base_of<SaveArchive<Archive>, Archive>::value;
+};
 
 template <class Archive>
-inline void assert_is_loadarchive() {
-    static_assert(std::is_base_of<LoadArchive<Archive>, Archive>::value,
-                  "Must be load archive!");
-}
+struct is_loadarchive {
+    constexpr static bool value =
+        std::is_base_of<LoadArchive<Archive>, Archive>::value;
+};
 
 class StringSaveArchive : public SaveArchive<StringSaveArchive> {
   private:
@@ -82,16 +82,6 @@ struct is_trivially_serializable {
 template <
     class Archive, class T,
     typename std::enable_if<is_trivially_serializable<T>::value, int>::type = 0>
-void serialize(Archive &a, const T t) {
-    assert_is_savearchive<Archive>();
-    char *dst = a.get_save_cursor(sizeof(T));
-    const char *src = reinterpret_cast<const char *>(&t);
-    std::copy(src, src + sizeof(T), dst);
-}
-
-template <
-    class Archive, class T,
-    typename std::enable_if<is_trivially_serializable<T>::value, int>::type = 0>
 void _span_serialize(Archive &a, const gsl::span<T> &sp) {
     char *dst = a.get_save_cursor(sp.size_bytes());
     const char *src = reinterpret_cast<const char *>(sp.data());
@@ -103,19 +93,36 @@ template <class Archive, class T,
                                   int>::type = 0>
 void _span_serialize(Archive &a, const gsl::span<T> &sp) {
     for (auto &element : sp) {
-        a << element; // use << instead of call serialize because proper serialize might not visible here
+        a << element;  // use << instead of call serialize because proper
+                       // serialize might not visible here
     }
 }
 
-template <class Archive, class T, size_t N>
+template <class Archive>
+using enable_if_savearchive_t =
+    typename std::enable_if<is_savearchive<Archive>::value, int>::type;
+
+template <class Archive>
+using enable_if_loadarchive_t =
+    typename std::enable_if<is_loadarchive<Archive>::value, int>::type;
+
+template <
+    class Archive, class T, enable_if_savearchive_t<Archive> = 0,
+    typename std::enable_if<is_trivially_serializable<T>::value, int>::type = 0>
+void serialize(Archive &a, const T t) {
+    char *dst = a.get_save_cursor(sizeof(T));
+    const char *src = reinterpret_cast<const char *>(&t);
+    std::copy(src, src + sizeof(T), dst);
+}
+
+template <class Archive, class T, size_t N,
+          enable_if_savearchive_t<Archive> = 0>
 void serialize(Archive &a, const gsl::static_span<T, N> &sp) {
-    assert_is_savearchive<Archive>();
     _span_serialize(a, sp);
 }
 
-template <class Archive, class T>
+template <class Archive, class T, enable_if_savearchive_t<Archive> = 0>
 void serialize(Archive &a, const gsl::span<T> &sp) {
-    assert_is_savearchive<Archive>();
     a << sp.size();
     _span_serialize(a, sp);
 }
@@ -138,18 +145,18 @@ void _span_deserialize(Archive &a, gsl::span<T> &sp) {
     }
 }
 
-template <class Archive, class T, size_t N>
+template <class Archive, class T, size_t N,
+          enable_if_loadarchive_t<Archive> = 0>
 void deserialize(Archive &a, gsl::static_span<T, N> &sp) {
-    assert_is_loadarchive<Archive>();
     _span_deserialize(a, sp);
 }
 
 template <class Archive,
           class Resizeable,  // Resizeable should be linear storage
+          enable_if_loadarchive_t<Archive> = 0,
           typename std::enable_if<!is_trivially_serializable<Resizeable>::value,
                                   int>::type = 0>
 void deserialize(Archive &a, Resizeable &r) {
-    assert_is_loadarchive<Archive>();
     size_t size_to_increase;
     a >> size_to_increase;
     r.resize(size_to_increase);
@@ -160,10 +167,9 @@ void deserialize(Archive &a, Resizeable &r) {
 }
 
 template <
-    class Archive, class T,
+    class Archive, class T, enable_if_loadarchive_t<Archive> = 0,
     typename std::enable_if<is_trivially_serializable<T>::value, int>::type = 0>
 void deserialize(Archive &a, T &t) {
-    assert_is_loadarchive<Archive>();
     const char *src = a.get_load_cursor(sizeof(T));
     char *dst = reinterpret_cast<char *>(&t);
     std::copy(src, src + sizeof(T), dst);
@@ -182,96 +188,185 @@ struct has_serializable_member {
 };
 
 template <
-    class Archive, class T,
+    class Archive, class T, enable_if_savearchive_t<Archive> = 0,
     typename std::enable_if<!has_serializable_member<T>::value, int>::type = 0>
 Archive &operator<<(Archive &a, const T &t) {
-    assert_is_savearchive<Archive>();
     serialize(a, t);
     return a;
 }
 
 template <
-    class Archive, class T,
+    class Archive, class T, enable_if_savearchive_t<Archive> = 0,
     typename std::enable_if<has_serializable_member<T>::value, int>::type = 0>
 Archive &operator<<(Archive &a, const T &t) {
-    assert_is_savearchive<Archive>();
     const_cast<T &>(t).serializable(a);  // danger!
     return a;
 }
 
-template <class Archive, class T, size_t N>
+template <class Archive, class T, size_t N,
+          enable_if_savearchive_t<Archive> = 0>
 Archive &operator<<(Archive &a, const T (&t)[N]) {
-    assert_is_savearchive<Archive>();
     auto sp = gsl::make_static_span(t);
     serialize(a, sp);
     return a;
 }
 
-template <class Archive>
+template <class Archive, enable_if_savearchive_t<Archive> = 0>
 Archive &operator<<(Archive &a, const std::string &s) {
-    assert_is_savearchive<Archive>();
     auto sp = gsl::make_span(s);
     serialize(a, sp);
     return a;
 }
 
-template <class Archive>
-Archive &operator>>(Archive &a, std::string &s) {
-    assert_is_loadarchive<Archive>();
-    deserialize(a, s);
-    return a;
-}
-
-template <class Archive, class T>
+template <class Archive, class T, enable_if_savearchive_t<Archive> = 0>
 Archive &operator<<(Archive &a, const std::vector<T> &v) {
-    assert_is_savearchive<Archive>();
     gsl::span<const T> sp{v.data(), v.size()};
     serialize(a, sp);
     return a;
 }
 
-template <class Archive, class T>
+template <class Archive, enable_if_loadarchive_t<Archive> = 0>
+Archive &operator>>(Archive &a, std::string &s) {
+    deserialize(a, s);
+    return a;
+}
+
+template <class Archive, class T, enable_if_loadarchive_t<Archive> = 0>
 Archive &operator>>(Archive &a, std::vector<T> &v) {
-    assert_is_loadarchive<Archive>();
     deserialize(a, v);
     return a;
 }
 
 template <
-    class Archive, class T,
+    class Archive, class T, enable_if_loadarchive_t<Archive> = 0,
     typename std::enable_if<!has_serializable_member<T>::value, int>::type = 0>
 Archive &operator>>(Archive &a, T &t) {
-    assert_is_loadarchive<Archive>();
     deserialize(a, t);
     return a;
 }
 
 template <
-    class Archive, class T,
+    class Archive, class T, enable_if_loadarchive_t<Archive> = 0,
     typename std::enable_if<has_serializable_member<T>::value, int>::type = 0>
 Archive &operator>>(Archive &a, T &t) {
-    assert_is_loadarchive<Archive>();
     t.serializable(a);
     return a;
 }
 
-template <class Archive, class T, size_t N>
+template <class Archive, class T, size_t N,
+          enable_if_loadarchive_t<Archive> = 0>
 Archive &operator>>(Archive &a, T (&t)[N]) {
-    assert_is_loadarchive<Archive>();
     auto sp = gsl::make_static_span(t);
     deserialize(a, sp);
     return a;
 }
 
-template <class T,
-          typename std::enable_if<std::is_arithmetic<T>::value, int>::type = 0>
-size_t real_size(T) {
+//  below is declarations
+
+template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
+                                           int>::type = 0>
+constexpr size_t real_size(const T &);
+
+template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
+                                           int>::type = 0>
+size_t real_size(const T &t);
+
+template <
+    class T, size_t N,
+    typename std::enable_if<is_trivially_serializable<T>::value, int>::type = 0>
+constexpr size_t real_size(const T (&)[N]);
+
+template <class T, size_t N,
+          typename std::enable_if<!is_trivially_serializable<T>::value,
+                                  int>::type = 0>
+constexpr size_t real_size(const T (&arr)[N]);
+
+template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
+                                           int>::type = 0>
+size_t real_size(const gsl::span<T> &sp);
+
+template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
+                                           int>::type = 0>
+size_t real_size(const gsl::span<T> &sp);
+
+constexpr size_t real_size(const std::string &s);
+
+template <class T>
+constexpr size_t real_size(const std::vector<T> &v);
+
+class SizeArchive {
+  private:
+    size_t total_size;
+
+  public:
+    constexpr SizeArchive() : total_size(0) {}
+    template <class T>
+    SizeArchive &operator&(const T &t) {
+        total_size += real_size(t);
+        return *this;
+    }
+    size_t get_total_size() const { return total_size; }
+};
+
+template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
+                                           int>::type>
+constexpr size_t real_size(const T &) {
     return sizeof(T);
+}
+
+template <
+    class T, size_t N,
+    typename std::enable_if<is_trivially_serializable<T>::value, int>::type>
+constexpr size_t real_size(const T (&)[N]) {
+    return N * sizeof(T);
+}
+
+constexpr size_t real_size(const std::string &s) {
+    return s.size() * sizeof(char) + sizeof(size_t);
+}
+
+template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
+                                           int>::type>
+size_t real_size(const T &t) {
+    SizeArchive sz_a;
+    const_cast<T &>(t).serializable(sz_a);
+    return sz_a.get_total_size();  // danger but have to
+}
+
+template <class T, typename std::enable_if<!is_trivially_serializable<T>::value,
+                                           int>::type>
+size_t real_size(const gsl::span<T> &sp) {
+    // no optimization for static_span, since we have to recurisve call the sum,
+    // very slow compiling
+    size_t sum = sizeof(size_t);
+    for (auto &i : sp) {
+        sum += real_size(i);
+    }
+    return sum;
+}
+
+template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
+                                           int>::type>
+size_t real_size(const gsl::span<T> &sp) {
+    return sizeof(T) * sp.size() + sizeof(size_t);
+}
+
+template <
+    class T, size_t N,
+    typename std::enable_if<!is_trivially_serializable<T>::value, int>::type>
+constexpr size_t real_size(const T (&arr)[N]) {
+    // minus a size_t since real_size span will account lenght for dynamic span
+    return real_size(gsl::make_span(arr)) - sizeof(size_t);
+}
+
+template <class T>
+constexpr size_t real_size(const std::vector<T> &v) {
+    return real_size(gsl::make_span(v));
 }
 
 // below is used by boxedvalue and submitter
 template <class T>
-T create_from_string(const std::string &s){
+T create_from_string(const std::string &s) {
     StringLoadArchive la{s};
     T t;
     la >> t;
@@ -279,7 +374,7 @@ T create_from_string(const std::string &s){
 }
 
 template <class T>
-std::string create_string(const T &t){
+std::string create_string(const T &t) {
     StringSaveArchive sa;
     sa << t;
     return sa.build();

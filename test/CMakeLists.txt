@@ -61,5 +61,15 @@ foreach(cppfile ${i_test_src})
     add_executable(${target_name} ${cppfile})
     target_link_libraries(${target_name} thallium)
     addbacktrace(${target_name})
+endforeach()
 
+# performance test
+file(GLOB p_test_src 
+    "performance/*.cpp"
+    )
+foreach(cppfile ${p_test_src})
+    get_filename_component(target_name ${cppfile} NAME_WE)
+    set(target_name "performance_${target_name}")
+    add_executable(${target_name} ${cppfile})
+    target_link_libraries(${target_name} thallium)
 endforeach()

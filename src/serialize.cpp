@@ -46,6 +46,11 @@ const char *StringLoadArchive::get_load_cursor(const size_t num) {
     return ret;
 }
 
+size_t real_size(const std::string &s) {
+    return s.size() * sizeof(char) + sizeof(size_t);
+}
+
+
 }  // namespace Serializer
 
 _THALLIUM_END_NAMESPACE

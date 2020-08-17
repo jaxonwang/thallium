@@ -5,7 +5,7 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-std::unique_ptr<execution_context> &&init_io_main_loop(){ 
+std::unique_ptr<execution_context> init_io_main_loop(){ 
 
     std::unique_ptr<execution_context>main_ctx{new execution_context{1}} ;
 
@@ -17,7 +17,7 @@ std::unique_ptr<execution_context> &&init_io_main_loop(){
     // just ignore signals
     _signals.async_wait([](const std::error_code &, int) {});
 
-    return std::move(main_ctx);
+    return main_ctx;
 }
 
 void main_loop(execution_context &ctx){

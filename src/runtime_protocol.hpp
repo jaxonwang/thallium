@@ -107,7 +107,7 @@ struct hash<thallium::FirstConCookie> {
         union {
             size_t s;
             u_int8_t bytes[sizeof(size_t)];
-        } ret;
+        } ret{};
         std::copy(c.data, c.data + sizeof(size_t), ret.bytes);
         return ret.s;
     }

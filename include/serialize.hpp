@@ -178,7 +178,8 @@ void deserialize(Archive &a, T &t) {
 template <class T>
 struct has_serializable_member {
     struct fake_archive {
-        fake_archive &operator&(T &) { return *this; }
+        template<class K>
+        fake_archive &operator&(K &) { return *this; }
     };
     template <class U>
     using _function_t = decltype(&U::template serializable<fake_archive>);
@@ -297,10 +298,10 @@ template <class T, typename std::enable_if<is_trivially_serializable<T>::value,
                                            int>::type = 0>
 size_t real_size(const gsl::span<T> &sp);
 
-constexpr size_t real_size(const std::string &s);
+size_t real_size(const std::string &s);
 
 template <class T>
-constexpr size_t real_size(const std::vector<T> &v);
+size_t real_size(const std::vector<T> &v);
 
 class SizeArchive {
   private:
@@ -327,10 +328,6 @@ template <
     typename std::enable_if<is_trivially_serializable<T>::value, int>::type>
 constexpr size_t real_size(const T (&)[N]) {
     return N * sizeof(T);
-}
-
-constexpr size_t real_size(const std::string &s) {
-    return s.size() * sizeof(char) + sizeof(size_t);
 }
 
 template <
@@ -370,7 +367,7 @@ constexpr size_t real_size(const T (&arr)[N]) {
 }
 
 template <class T>
-constexpr size_t real_size(const std::vector<T> &v) {
+size_t real_size(const std::vector<T> &v) {
     return real_size(gsl::make_span(v));
 }
 

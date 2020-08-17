@@ -8,7 +8,7 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-std::unique_ptr<execution_context> &&init_io_main_loop(); 
+std::unique_ptr<execution_context> init_io_main_loop(); 
 
 void main_loop(execution_context &ctx);
 

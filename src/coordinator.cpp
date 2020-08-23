@@ -98,7 +98,7 @@ CoordinatorServer::CoordinatorServer(
 void CoordinatorServer::firstconnection(const int conn_id,
                                         const message::ReadOnlyBuffer &buf) {
     assert_message_type(*this, buf, MessageType::firstconnection);
-    Firsconnection f = Firsconnection::from_buffer(buf);
+    Firsconnection f = from_buffer<Firsconnection>(buf);
     if (cookies.count(f.firstcookie) == 0) {
         TI_WARN("Recevied cookie illegal!");
         disconnect(conn_id);
@@ -124,7 +124,7 @@ WorkerDeamon::WorkerDeamon(const string &cookie)
       fc_cookie(cookie) {}
 
 void WorkerDeamon::init_logic() {
-    send_to_server(Firsconnection(fc_cookie).to_buffer());
+    send_to_server(to_buffer(Firsconnection(fc_cookie)));
 }
 void WorkerDeamon::firstconnection_ok(const int conn_id,
                                       const message::ReadOnlyBuffer &buf) {

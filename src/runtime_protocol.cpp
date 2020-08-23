@@ -21,7 +21,7 @@ void length_assert(const size_t expected, const size_t length) {
 MessageType read_header_messagetype(const message::ReadOnlyBuffer& buf) {
     runtime_header header;
     message::cast(buf, header);
-    return header.type;
+    return header.message_type;
 }
 
 FirstConCookie::FirstConCookie() {
@@ -83,22 +83,5 @@ Firsconnection::Firsconnection(const string& cookie) : firstcookie(cookie) {}
 
 Firsconnection::Firsconnection(const FirstConCookie cookie)
     : firstcookie(cookie) {}
-
-Firsconnection Firsconnection::from_buffer(const message::ReadOnlyBuffer& buf) {
-    runtime_header header;
-    FirstConCookie cookie;
-    auto ret = message::cast(buf, header, cookie.data);
-    length_assert(ret, buf.size());
-    return Firsconnection(move(cookie));
-}
-
-message::ZeroCopyBuffer Firsconnection::to_buffer() const {
-    return message::build<message::ZeroCopyBuffer>(runtime_header{MessageType::firstconnection},
-            firstcookie.data);
-}
-
-message::ZeroCopyBuffer FirsconnectionOK::to_buffer() const {
-    return message::build<message::ZeroCopyBuffer>(runtime_header{MessageType::firstconnectionok});
-}
 
 _THALLIUM_END_NAMESPACE

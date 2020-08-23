@@ -18,10 +18,10 @@ enum MessageType : u_int8_t {
 };
 
 struct runtime_header {
-    MessageType type;
+    MessageType message_type;
     template <class Archive>
     void serializable(Archive& ar) {
-        ar& type;
+        ar& message_type;
     }
 };
 
@@ -36,56 +36,52 @@ class FirstConCookie {
     FirstConCookie(const char* buf, const size_t length);
     std::string to_printable() const;
     bool operator==(const FirstConCookie& other) const;
+    template <class Archive>
+    void serializable(Archive& ar) {
+        ar& data;
+    }
 };
 
 bool operator!=(const FirstConCookie a, const FirstConCookie& b);
 
 class Message {
-    virtual message::ZeroCopyBuffer to_buffer() const = 0;
-};
-
-template <class MsgClass, MessageType msg_type_header, class... Args>
-struct Marshaller {
-    template <Args... args>
-    struct with {
-        static MsgClass from_buffer(const message::ReadOnlyBuffer& buf) {
-            MsgClass msgobj;
-            runtime_header header;
-            message::cast(buf, header, (msgobj.*args)...);
-            return msgobj;
-        }
-        static message::ZeroCopyBuffer to_buffer(const MsgClass& msgobj) {
-            auto header = runtime_header{msg_type_header};
-            return message::build<message::ZeroCopyBuffer>(header,
-                                                           (msgobj.*args)...);
-        }
-    };
 };
 
 template <class MsgClass>
 MsgClass from_buffer(const message::ReadOnlyBuffer& buf) {
-    return MsgClass::marshaller::from_buffer(buf);
+    MsgClass msg;
+    runtime_header header;
+    message::cast<message::ReadOnlyBuffer>(buf, header, msg);
+    if (header.message_type != MsgClass::message_type) {
+        throw std::logic_error("Message type unmatch!");
+    }
+    return msg;
 }
 
 template <class MsgClass>
 message::ZeroCopyBuffer to_buffer(const MsgClass& msgobj) {
-    return MsgClass::marshaller::to_buffer(msgobj);
+    runtime_header header{MsgClass::message_type};
+    return message::build<message::ZeroCopyBuffer>(header, msgobj);
 }
 
 class Firsconnection : public Message {
   public:
     FirstConCookie firstcookie;
+    Firsconnection() = default;
     Firsconnection(const FirstConCookie cookie);
     Firsconnection(const std::string& cookie);
-    message::ZeroCopyBuffer to_buffer() const override;
-    static Firsconnection from_buffer(const message::ReadOnlyBuffer&);
+    constexpr static MessageType message_type = MessageType::firstconnection;
+    template <class Archive>
+    void serializable(Archive& ar) {
+        ar& firstcookie;
+    }
 };
 
 class FirsconnectionOK : public Message {
   public:
-    using marshaller =
-        Marshaller<FirsconnectionOK, MessageType::firstconnectionok>::with<>;
-    message::ZeroCopyBuffer to_buffer() const override;
+    constexpr static MessageType message_type = MessageType::firstconnectionok;
+    template <class Archive>
+    void serializable(Archive&) {}
 };
 
 class Peerinfo : public Message {
@@ -93,8 +89,6 @@ class Peerinfo : public Message {
     std::string address;
     unsigned short port;
     Peerinfo(const std::string& address, const unsigned short port);
-    message::ZeroCopyBuffer to_buffer() const override;
-    static Firsconnection from_buffer(const message::ReadOnlyBuffer&);
 };
 
 _THALLIUM_END_NAMESPACE

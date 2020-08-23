@@ -35,7 +35,7 @@ typedef std::vector<char> CopyableBuffer;
 class ZeroCopyBuffer : public CopyableBuffer {
   public:
     ZeroCopyBuffer() : CopyableBuffer(){};
-    ZeroCopyBuffer(size_type, value_type = size_type());
+    ZeroCopyBuffer(size_type, value_type = 0);
     ZeroCopyBuffer(const ZeroCopyBuffer &) = delete;
     ZeroCopyBuffer(CopyableBuffer &&);
     ZeroCopyBuffer(ZeroCopyBuffer &&);
@@ -172,7 +172,8 @@ void _build(Archive &ar, Arg &&arg, Args &&... args) {
 
 template <class Buffer, class... Args>
 Buffer build(Args &&... args) {  // from POD to buf
-    Buffer buf(variadic_sum(Serializer::real_size(args)...), 0);
+    size_t total = variadic_sum(Serializer::real_size(args)...);
+    Buffer buf(total, 0);
     Serializer::FixSizeBufferSavingArchive<Buffer> arcv{buf};
     _build(arcv, std::forward<Args>(args)...);
     return buf;

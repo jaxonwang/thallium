@@ -22,6 +22,7 @@ class ConnectionManager : public Layer, public Disconnector{
     ConnectionManager(execution_context &_context);
     ConnectionManager(const ConnectionManager &c) = delete;
 
+    // when new connection accepted, call this function
     void new_connection(boost::asio::ip::tcp::socket &&s);
 
     void send(const int, message::ZeroCopyBuffer &&) override;

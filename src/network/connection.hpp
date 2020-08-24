@@ -7,18 +7,17 @@
 
 #include "asio_type_wrapper.hpp"
 #include "common.hpp"
+#include "heartbeat.hpp"
 #include "protocol.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
-typedef std::unique_ptr<boost::asio::steady_timer> timer_ptr;
-
 class Connection {
   public:
-    // use char * to show that the the data in char * will be availabe 
-    // during the whole callback execution, with the guarantee that connection is
-    // singal thread read
-    typedef std::function<void(const char*, size_t)> receive_callback;
+    // use char * to show that the the data in char * will be availabe
+    // during the whole callback execution, with the guarantee that connection
+    // is singal thread read
+    typedef std::function<void(const char *, size_t)> receive_callback;
 
   protected:
     using asio_tcp = boost::asio::ip::tcp;
@@ -28,7 +27,6 @@ class Connection {
     const static size_t buffer_size = 8192;
     execution_context &_context;
     socket_ptr holding_socket;
-    timer_ptr heartbeat_timer;
     // this buffer will only grow but never shinks
     std::vector<char> _receive_buffer;
     std::array<char, message::header_size> _header_buffer;
@@ -40,22 +38,23 @@ class Connection {
 
   public:
     Connection(execution_context &_context, asio_tcp::socket &&s,
-               const receive_callback &f, const std::chrono::seconds timeout);
+               const receive_callback &f);
     Connection(const Connection &c) = delete;
     virtual ~Connection() = default;
 
     void connection_close();
+    void do_send_message(message::ZeroCopyBuffer &&msg);
     void do_receive_message();
+
+  protected:
     void when_header_received(const std::error_code &, const size_t);
     void do_receive_payload(const size_t length);
     void when_payload_received(const size_t, const std::error_code &,
                                const size_t);
-    void do_send_message(message::ZeroCopyBuffer &&msg);
     void when_message_sent(const size_t, const std::error_code &, const size_t);
     void do_send_header(message::ZeroCopyBuffer &&header);
     std::string socket_to_string() const;
 
-    virtual void when_timeout(const std::error_code &ec) = 0;
     virtual void header_parser() = 0;
     virtual void handle_eof() = 0;
 };
@@ -64,8 +63,8 @@ class ServerConnection : public Connection {
   public:
     ServerConnection(execution_context &_context, asio_tcp::socket &&s,
                      const receive_callback &f);
-    void when_receive_heartbeat();
-    void when_timeout(const std::error_code &ec) override;
+
+  protected:
     void header_parser() override;
     void handle_eof() override;
 };
@@ -74,10 +73,42 @@ class ClientConnection : public Connection {
   public:
     ClientConnection(execution_context &_context, asio_tcp::socket &&s,
                      const receive_callback &f);
-    void do_send_heartbeat();
-    void when_timeout(const std::error_code &ec) override;
+
+  protected:
     void header_parser() override;
     void handle_eof() override;
+};
+
+class ServerConnectionWithHeartbeat : public ServerConnection,
+                                      private HeartbeatChecker {
+  public:
+    ServerConnectionWithHeartbeat(execution_context &_context,
+                                  asio_tcp::socket &&s,
+                                  const receive_callback &f,
+                                  const std::chrono::milliseconds &interval);
+
+  public:
+    void connection_close();
+
+  protected:
+    void when_receive_heartbeat();
+    void header_parser() override;
+    void when_timeout(const std::error_code &ec) override;
+};
+
+class ClientConnectionWithHeartbeat : public ClientConnection,
+                                      private HeartbeatSender {
+  public:
+    ClientConnectionWithHeartbeat(execution_context &_context,
+                                  asio_tcp::socket &&s,
+                                  const receive_callback &f,
+                                  const std::chrono::milliseconds &interval);
+
+  public:
+    void connection_close();
+
+  protected:
+    void send_heartbeat(const std::error_code &ec) override;
 };
 
 _THALLIUM_END_NAMESPACE

@@ -29,10 +29,10 @@ namespace ti_test {
 
 class TmpFile {
   private:
-    char filepath_holder[L_tmpnam];
+    char filepath_holder[64];
 
   public:
-    const char *filepath;
+    char *filepath;
     TmpFile();
     TmpFile(const TmpFile &f) = delete;
     TmpFile(TmpFile &&f) = delete;

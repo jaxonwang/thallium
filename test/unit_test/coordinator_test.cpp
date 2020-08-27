@@ -67,7 +67,7 @@ TEST(Host, ReadHostFile) {
 }
 
 TEST(Coordinator, Register) {
-    logging_init(1);
+    ti_test::LoggingTracer _t{1, true};
 
     typedef std::unordered_set<FirstConCookie> cookie_set;
     cookie_set cookies;
@@ -114,5 +114,4 @@ TEST(Coordinator, Register) {
         t.join();
     }
 
-    logging_init(0);
 }

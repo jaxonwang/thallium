@@ -1,31 +1,72 @@
 #include "test.hpp"
 
-#include <cstdio>
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 
 #ifdef __linux__
-    #include <cstdlib>
+#include <cstdlib>
 #endif
 
 #include <unistd.h>
 
+#include "logging.hpp"
+
 namespace ti_test {
 
-TmpFile::TmpFile():filepath(filepath_holder){
-    const char pattern[] ="justatempfilenameXXXXXX";
-    std::copy(pattern, pattern + sizeof(pattern), filepath_holder);
-
+TmpFile::TmpFile()
+    : filepath_holder{"/tmp/justatempfilenameXXXXXX"},
+      filepath(filepath_holder) {
     int ret = mkstemp(filepath_holder);
 
-    if(!ret)
-        throw std::runtime_error("Can not find a tmp filename");
+    if (!ret) throw std::runtime_error("Can not find a tmp filename");
 
     close(ret);
 }
 
-TmpFile::~TmpFile(){
-    std::remove(filepath);
+TmpFile::~TmpFile() { std::remove(filepath); }
+
+struct LoggingTracerImpl {
+    std::unique_ptr<thallium::GlobalLoggerManager> mnger_holder;
+    std::unique_ptr<TmpFile> logfile;
+    bool changelevelonly;
+};
+
+// class LoggingTracer{
+//     public:
+//     explicit LoggingTracer(const int level);
+//     ~LoggingTracer();
+//     std::vector<std::string> log_content();
+// };
+
+LoggingTracer::LoggingTracer(const int level, const bool changelevelonly)
+    : impl(new LoggingTracerImpl()) {
+    impl->changelevelonly = changelevelonly;
+    // store current
+    thallium::get_global_manager().swap(impl->mnger_holder);
+    if (!changelevelonly) { //no trace the log
+        impl->logfile.reset(new TmpFile());
+        thallium::logging_init(level, impl->logfile->filepath);
+    }else{
+        thallium::logging_init(level);
+    }
+}
+
+LoggingTracer::~LoggingTracer() {
+    // revert to before
+    thallium::get_global_manager().swap(impl->mnger_holder);
+}
+
+std::vector<std::string> LoggingTracer::log_content(){
+    std::vector<std::string> content;
+    if(impl->changelevelonly)
+        return content;
+    std::ifstream reader{impl->logfile->filepath};
+    std::string line;
+    while(std::getline(reader, line)){
+        content.push_back(move(line));
+    }
+    return content;
 }
 
 };  // namespace ti_test

@@ -17,9 +17,10 @@ class ConnectionManager : public Layer, public Disconnector{
     execution_context & _context;
     std::unordered_map<int, std::unique_ptr<ServerConnection>> holdings;
     int next_id;
+    bool withheartbeat;
 
   public:
-    ConnectionManager(execution_context &_context);
+    ConnectionManager(execution_context &_context, const bool heartbeat=false);
     ConnectionManager(const ConnectionManager &c) = delete;
 
     // when new connection accepted, call this function
@@ -41,7 +42,7 @@ class AsyncServer : public Stoper{
     void when_accept(const std::error_code &ec, boost::asio::ip::tcp::socket &&peer);
     void do_accept();
   public:
-    AsyncServer(execution_context &ctx, const ti_socket_t &);
+    AsyncServer(execution_context &ctx, const ti_socket_t &, const bool heartbeat=false);
     void start();
     void stop() override;
     ti_socket_t server_socket();

@@ -42,9 +42,9 @@ class Connection {
     Connection(const Connection &c) = delete;
     virtual ~Connection() = default;
 
-    void connection_close();
-    void do_send_message(message::ZeroCopyBuffer &&msg);
-    void do_receive_message();
+    virtual void connection_close();
+    virtual void do_send_message(message::ZeroCopyBuffer &&msg);
+    virtual void do_receive_message();
 
   protected:
     void when_header_received(const std::error_code &, const size_t);
@@ -84,11 +84,10 @@ class ServerConnectionWithHeartbeat : public ServerConnection,
   public:
     ServerConnectionWithHeartbeat(execution_context &_context,
                                   asio_tcp::socket &&s,
-                                  const receive_callback &f,
-                                  const std::chrono::milliseconds &interval);
+                                  const receive_callback &f);
 
   public:
-    void connection_close();
+    void connection_close() override;
 
   protected:
     void when_receive_heartbeat();
@@ -101,11 +100,10 @@ class ClientConnectionWithHeartbeat : public ClientConnection,
   public:
     ClientConnectionWithHeartbeat(execution_context &_context,
                                   asio_tcp::socket &&s,
-                                  const receive_callback &f,
-                                  const std::chrono::milliseconds &interval);
+                                  const receive_callback &f);
 
   public:
-    void connection_close();
+    void connection_close() override;
 
   protected:
     void send_heartbeat(const std::error_code &ec) override;

@@ -26,6 +26,20 @@
         }                                                        \
     } while (0)
 
+bool inline __contain(const std::string &s, const std::string &pattern) {
+    return s.find(pattern) != std::string::npos;
+}
+
+#define ASSERT_STR_CONTAIN(text, pattern)      \
+    do {                                       \
+        ASSERT_TRUE(__contain(text, pattern)); \
+    } while (0)
+
+#define ASSERT_STR_NOTCONTAIN(text, pattern)    \
+    do {                                        \
+        ASSERT_FALSE(__contain(text, pattern)); \
+    } while (0)
+
 namespace ti_test {
 
 class TmpFile {
@@ -42,13 +56,14 @@ class TmpFile {
 
 struct LoggingTracerImpl;
 
-class LoggingTracer{
+class LoggingTracer {
     std::unique_ptr<LoggingTracerImpl> impl;
-    public:
+
+  public:
     // temporary set log level, and trace if not changelevelonly
-    explicit LoggingTracer(const int level, bool changelevelonly);
-    LoggingTracer(const LoggingTracer&) = delete;
-    LoggingTracer(LoggingTracer&&) = delete;
+    explicit LoggingTracer(const int level, bool changelevelonly = true);
+    LoggingTracer(const LoggingTracer &) = delete;
+    LoggingTracer(LoggingTracer &&) = delete;
     ~LoggingTracer();
     std::vector<std::string> log_content();
 };

@@ -1,7 +1,7 @@
 #include "logging.hpp"
 
-#include <unordered_map>
 #include <mutex>
+#include <unordered_map>
 
 #include "common.hpp"
 
@@ -59,7 +59,9 @@ GlobalLoggerManager::GlobalLoggerManager(int level, const char *file_path)
         _ostream_ptr.reset(s_ptr);
         _logger_ptr.reset(new AsyncLogger(*_ostream_ptr));
     }
-    thread tmp{[this]() { this->loop_body(); }}; // use tmp variable to avoid uncertain copy elision
+    thread tmp{[this]() {
+        this->loop_body();
+    }};  // use tmp variable to avoid uncertain copy elision
     deamon = move(tmp);
 }
 
@@ -150,6 +152,8 @@ const char *Record::level_name(int level_num) {
 
 // global storage of mng
 static unique_ptr<GlobalLoggerManager> mng;
+
+unique_ptr<GlobalLoggerManager> &get_global_manager() { return mng; };
 
 AsyncLogger &get_global_logger() { return mng->get_logger(); }
 

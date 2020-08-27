@@ -17,11 +17,11 @@ namespace ti_test {
 TmpFile::TmpFile()
     : filepath_holder{"/tmp/justatempfilenameXXXXXX"},
       filepath(filepath_holder) {
-    int ret = mkstemp(filepath_holder);
-
-    if (!ret) throw std::runtime_error("Can not find a tmp filename");
-
-    close(ret);
+    // int ret = mkstemp(filepath_holder);
+    //
+    // if (!ret) throw std::runtime_error("Can not find a tmp filename");
+    //
+    // close(ret);
 }
 
 TmpFile::~TmpFile() { std::remove(filepath); }

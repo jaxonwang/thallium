@@ -14,8 +14,8 @@ using namespace std::placeholders;
 using asio_tcp = boost::asio::ip::tcp;
 namespace asio = boost::asio;
 
-ConnectionManager::ConnectionManager(execution_context &_context)
-    : _context(_context), holdings(), next_id(0) {
+ConnectionManager::ConnectionManager(execution_context &_context, const bool heartbeat)
+    : _context(_context), holdings(), next_id(0), withheartbeat(heartbeat) {
   // TODO: periodically clean up closed connections
 }
 
@@ -25,8 +25,12 @@ void ConnectionManager::new_connection(asio_tcp::socket &&peer) {
   typedef Connection::receive_callback receive_callback;
   // add callback
   receive_callback f = bind(&ConnectionManager::receive, this, conn_id, _1, _2);
-  holdings[conn_id] = unique_ptr<ServerConnection>{
-      new ServerConnection(_context, move(peer), f)};
+  ServerConnection * new_con_ptr;
+  if(withheartbeat)
+      new_con_ptr = new ServerConnectionWithHeartbeat(_context,move(peer), f);
+  else
+      new_con_ptr = new ServerConnection(_context, move(peer), f);
+  holdings[conn_id] = unique_ptr<ServerConnection>{ new_con_ptr};
   holdings[conn_id]->do_receive_message();
 }
 
@@ -43,8 +47,8 @@ void ConnectionManager::disconnect(const int conn_id) {
   holdings[conn_id]->connection_close();
 }
 
-AsyncServer::AsyncServer(execution_context &ctx, const ti_socket_t &s)
-    : _socket(s), _context(ctx), _acceptor(_context), _cmanager(_context) {}
+AsyncServer::AsyncServer(execution_context &ctx, const ti_socket_t &s, const bool heartbeat)
+    : _socket(s), _context(ctx), _acceptor(_context), _cmanager(_context, heartbeat) {}
 
 ti_socket_t AsyncServer::server_socket() { return _socket; }
 

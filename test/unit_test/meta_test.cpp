@@ -9,9 +9,9 @@ using namespace thallium;
 TEST(Meta, LoggingTracer){
     logging_init(0);
     ti_test::LoggingTracer t(2, false);
-    vector<string> strs;
+    vector<string> strs = {"just", "test", "hello", "world", "!"};
 
-    for (int i = 0; i < 5; i++) {
+    for (size_t i = 0; i < strs.size(); i++) {
        TI_DEBUG("just test");
        TI_INFO("just test");
        TI_WARN(to_string(i));

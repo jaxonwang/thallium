@@ -74,8 +74,8 @@ class AsyncLogger {
 };
 
 class LevelFilter {
-    const int min_level;
   public:
+    const int min_level;
     LevelFilter(const int level);
     bool filter(int level);
 };
@@ -125,6 +125,8 @@ class Record {
 void logging_init(int level, const char * file_path = nullptr); 
 
 void _log(int level, const char *file_name, const int line_num, const std::string &&msg);
+
+std::unique_ptr<GlobalLoggerManager> &get_global_manager();
 
 _THALLIUM_END_NAMESPACE
 

@@ -13,16 +13,15 @@ using namespace std::placeholders;
 using asio_tcp = boost::asio::ip::tcp;
 namespace asio = boost::asio;
 
-template<class Endpoints>
-real_addr_type AsyncClient::try_connect(asio_tcp::socket & asio_s, Endpoints & eps){
-
+template <class Endpoints>
+real_addr_type AsyncClient::try_connect(asio_tcp::socket &asio_s,
+                                        Endpoints &eps) {
     decltype(connect(asio_s, eps)) ep;
     try {
         ep = connect(asio_s, eps);
         // copy the connected
     } catch (const std::system_error &e) {
-        TI_FATAL(format("Connect failed: {}",
-                        e.what()));
+        TI_FATAL(format("Connect failed: {}", e.what()));
         throw e;
     }
     TI_DEBUG(format("Successfully connect to {}", ep.address().to_string()));
@@ -30,14 +29,21 @@ real_addr_type AsyncClient::try_connect(asio_tcp::socket & asio_s, Endpoints & e
     // just return 0 as conn id
     function<void(const char *, const size_t)> f =
         std::bind(&AsyncClient::receive, this, 0, _1, _2);
-    holding.reset(new ClientConnection(_context, move(asio_s), f));
+    ClientConnection *new_con_ptr;
+    if (withheartbeat)
+        new_con_ptr =
+            new ClientConnectionWithHeartbeat(_context, move(asio_s), f);
+    else
+        new_con_ptr = new ClientConnection(_context, move(asio_s), f);
+    holding.reset(new_con_ptr);
 
     return ep.address().to_v4();
 }
 
 // will throw
-AsyncClient::AsyncClient(execution_context &ctx, const ti_socket_t &s)
-    : _socket(s), _context(ctx) {
+AsyncClient::AsyncClient(execution_context &ctx, const ti_socket_t &s,
+                         const bool heartbeat)
+    : _socket(s), _context(ctx), withheartbeat(heartbeat) {
     asio_tcp::endpoint ep{_socket.addr, _socket.port};
     asio_tcp::socket asio_s{_context};
     // why asio must accept endpoint list
@@ -48,8 +54,8 @@ AsyncClient::AsyncClient(execution_context &ctx, const ti_socket_t &s)
 }
 
 AsyncClient::AsyncClient(execution_context &ctx, const string &hostname,
-                         unsigned short port)
-    : _context(ctx) {
+                         const unsigned short port, const bool heartbeat)
+    : _context(ctx), withheartbeat(heartbeat) {
     asio_tcp::resolver rslver{_context};
 
     typename asio_tcp::resolver::results_type eps;

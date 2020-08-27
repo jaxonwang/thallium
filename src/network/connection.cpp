@@ -211,9 +211,8 @@ void ServerConnection::handle_eof() {
 
 ServerConnectionWithHeartbeat ::ServerConnectionWithHeartbeat(
     execution_context &_context, asio_tcp::socket &&s,
-    const receive_callback &f, const std::chrono::milliseconds &interval)
-    : ServerConnection(_context, move(s), f),
-      HeartbeatChecker(_context, interval) {
+    const receive_callback &f)
+    : ServerConnection(_context, move(s), f), HeartbeatChecker(_context) {
     heartbeat_start();
 }
 
@@ -235,10 +234,11 @@ void ServerConnectionWithHeartbeat::header_parser() {
 
 void ServerConnectionWithHeartbeat::when_receive_heartbeat() {
     // now, set to initial timeout
+    TI_DEBUG(format("Receive heartbeat from {}", socket_to_string()));
     heartbeat_received();
 }
 
-void ServerConnectionWithHeartbeat::connection_close(){
+void ServerConnectionWithHeartbeat::connection_close() {
     heartbeat_stop();
     ServerConnection::connection_close();
 }
@@ -246,8 +246,8 @@ void ServerConnectionWithHeartbeat::connection_close(){
 void ServerConnectionWithHeartbeat::when_timeout(const std::error_code &ec) {
     if (ec) {
         if (ec.value() == asio::error::operation_aborted)
-            TI_DEBUG(format("Timer of socket id {}: {}", socket_to_string(),
-                            ec.message()));
+            // could be the timer reset or stop the heartbeat
+            return;
         else {
             TI_ERROR(format("Error when {} timer expires: {}",
                             socket_to_string(), ec.message()));
@@ -281,9 +281,8 @@ void ClientConnection::handle_eof() {
 
 ClientConnectionWithHeartbeat::ClientConnectionWithHeartbeat(
     execution_context &_context, asio_tcp::socket &&s,
-    const receive_callback &f, const chrono::milliseconds &interval)
-    : ClientConnection(_context, move(s), f),
-      HeartbeatSender(_context, interval) {
+    const receive_callback &f)
+    : ClientConnection(_context, move(s), f), HeartbeatSender(_context) {
     heartbeat_start();
 }
 
@@ -296,8 +295,9 @@ void ClientConnectionWithHeartbeat::send_heartbeat(const std::error_code &ec) {
             TI_ERROR(format("Error when {} timer expires: {}",
                             socket_to_string(), ec.message()));
         }
+        connection_close();
     } else {
-        TI_DEBUG(format("Time to send heartbeat to {}.", socket_to_string()));
+        TI_DEBUG(format("Send heartbeat to {}.", socket_to_string()));
         message::Header h{message::HeaderMessageType::heartbeat, 0};
         message::ZeroCopyBuffer buf(message::header_size);
         message::header_to_string(h, buf.data());
@@ -305,7 +305,7 @@ void ClientConnectionWithHeartbeat::send_heartbeat(const std::error_code &ec) {
     }
 }
 
-void ClientConnectionWithHeartbeat::connection_close(){
+void ClientConnectionWithHeartbeat::connection_close() {
     heartbeat_stop();
     ClientConnection::connection_close();
 }

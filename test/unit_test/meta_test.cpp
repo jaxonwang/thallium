@@ -14,13 +14,14 @@ TEST(Meta, LoggingTracer){
     for (size_t i = 0; i < strs.size(); i++) {
        TI_DEBUG("just test");
        TI_INFO("just test");
-       TI_WARN(to_string(i));
+       TI_WARN(strs[i]);
     }
 
-    vector<string> logs = t.log_content();
+    vector<string> logs = t.collect();
 
     ASSERT_EQ(logs.size(), strs.size());
     for (size_t i = 0; i < strs.size(); i++) {
+        // all should match strs
         ASSERT_TRUE(logs[i].find(strs[i])!=string::npos);
     }
 }

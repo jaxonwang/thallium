@@ -26,6 +26,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsa
 # log level
 if(${CMAKE_BUILD_TYPE} MATCHES Debug)
     add_definitions(-DLOG_LEVEL_DEBUG)
+    add_definitions(-DDEBUG)
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
     add_definitions(-DLOG_LEVEL_INFO)
@@ -46,7 +47,7 @@ find_package(Threads REQUIRED)
 
 # for this project
 include_directories(include src)
-set(libraries_thallium_deps ${Boost_LIBRARIES} Threads::Threads)
+set(libraries_thallium_deps ${Boost_LIBRARIES} boost_system Threads::Threads)
 
 # find all cpp files
 file(GLOB src_files

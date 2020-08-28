@@ -65,7 +65,7 @@ class LoggingTracer {
     LoggingTracer(const LoggingTracer &) = delete;
     LoggingTracer(LoggingTracer &&) = delete;
     ~LoggingTracer();
-    std::vector<std::string> log_content();
+    std::vector<std::string> collect();
 };
 
 }  // namespace ti_test

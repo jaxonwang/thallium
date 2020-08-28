@@ -97,6 +97,8 @@ class GlobalLoggerManager {
     GlobalLoggerManager(GlobalLoggerManager &&) = delete;
     ~GlobalLoggerManager();
 
+    void flush_records();
+
     AsyncLogger &get_logger();
 
     LevelFilter &get_level_filter();

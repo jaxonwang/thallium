@@ -280,25 +280,47 @@ void revertHeartBeatPolicy() { setHeartBeatPolicy(0, 0, 0, true); }
 
 TEST(HeartBeat, Basic) {
     ti_test::LoggingTracer t{0, false};
-    setHeartBeatPolicy(10, 20, 20);
+    // need to make sure client will not time out
+    // but very time client sending the heartbeat will write logs
+    // io may cause time out.
+    // Here I use /dev/shm, otherwise I need to set a huge interval
+    setHeartBeatPolicy(50, 100, 100);
     heartbeatsetup(chrono::milliseconds{1}, 50);
     revertHeartBeatPolicy();
 
-    auto logs = t.log_content();
-    cout << logs.size() << endl;
-
-    ASSERT_TRUE(logs.size() > 7);
-    ASSERT_STR_CONTAIN(logs[0], "Accepting connection from");
-    ASSERT_STR_CONTAIN(logs[1], "Successfully connect to");
-    for (size_t i = 2; i < logs.size() - 3; i++) {
-        ASSERT_STR_CONTAIN(logs[i], "Receive heartbeat");
-        ASSERT_STR_CONTAIN(logs[++i], "Send heartbeat");
-    }
-    ASSERT_STR_CONTAIN(logs[logs.size() - 3], "Acceptor stopped");
-    ASSERT_STR_CONTAIN(logs[logs.size() - 2], "Operation canceled");
-    ASSERT_STR_CONTAIN(logs[logs.size() - 1], "closes connection");
+    auto logs = t.collect();
 
     for (auto &i : logs) {
+        cout << i << endl;
+    }
+    
+    ASSERT_TRUE(logs.size() > 7);
+    auto contain = [](const string& s, const string& p) {
+        return s.find(p) != string::npos;
+    };
+
+    const string s1{"Accepting connection from"};
+    const string s2{"Successfully connect to"};
+    // order might differ
+    ASSERT_TRUE((contain(logs[1], s1) && contain(logs[0], s2)) ||
+                (contain(logs[0], s1) && contain(logs[1], s2)));
+
+    for (size_t i = 2; i < logs.size() - 3; i++) {
+        ASSERT_STR_CONTAIN(logs[i], "Send heartbeat");
+        ASSERT_STR_CONTAIN(logs[++i], "Receive heartbeat");
+    }
+
+    const string s3{"Acceptor stopped"};
+    const string s4{"Operation canceled"};
+    const string s5{"closes connection"};
+    int matched = 0;
+    for (int i = 1; i <= 3; i++) {
+        const string& _s = logs[logs.size() - i];
+        if (contain(_s, s3) || contain(_s, s4) || contain(_s, s5)) matched++;
+    }
+    ASSERT_EQ(matched, 3);
+
+    for (auto& i : logs) {
         ASSERT_STR_NOTCONTAIN(i, "ERROR");
     }
 }

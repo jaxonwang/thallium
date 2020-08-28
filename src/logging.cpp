@@ -65,7 +65,13 @@ GlobalLoggerManager::GlobalLoggerManager(int level, const char *file_path)
     deamon = move(tmp);
 }
 
+void GlobalLoggerManager::flush_records() {
+    _logger_ptr->flush_all();
+    _ostream_ptr->flush();
+}
+
 GlobalLoggerManager::~GlobalLoggerManager() {
+    // does not exception free...
     stop();
     if (deamon.joinable()) {
         deamon.join();
@@ -153,7 +159,7 @@ const char *Record::level_name(int level_num) {
 // global storage of mng
 static unique_ptr<GlobalLoggerManager> mng;
 
-unique_ptr<GlobalLoggerManager> &get_global_manager() { return mng; };
+unique_ptr<GlobalLoggerManager> &get_global_manager() { return mng; }
 
 AsyncLogger &get_global_logger() { return mng->get_logger(); }
 

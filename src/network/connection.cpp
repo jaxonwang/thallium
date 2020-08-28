@@ -31,6 +31,11 @@ Connection::Connection(execution_context &_context, asio_tcp::socket &&_socket,
       _write_queue(),
       socket_str(),
       upper_layer_callback(f) {
+#ifdef DEBUG
+    // for test, the heartbeat is send at short time, without delay will be accumulated
+    boost::asio::ip::tcp::no_delay option(true);
+    holding_socket->set_option(option);
+#endif
     socket_str = holding_socket->remote_endpoint().address().to_string() + ":" +
                  std::to_string(holding_socket->remote_endpoint().port());
 }

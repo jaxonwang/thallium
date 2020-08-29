@@ -47,7 +47,7 @@ find_package(Threads REQUIRED)
 
 # for this project
 include_directories(include src)
-set(libraries_thallium_deps ${Boost_LIBRARIES} boost_system Threads::Threads)
+set(libraries_thallium_deps ${Boost_LIBRARIES} ${BOOSTSYSTEM_LIBRARY} Threads::Threads)
 
 # find all cpp files
 file(GLOB src_files

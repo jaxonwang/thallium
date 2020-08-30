@@ -27,8 +27,10 @@ class ConnectionManager : public Layer, public Disconnector{
     void new_connection(boost::asio::ip::tcp::socket &&s);
 
     void send(const int, message::ZeroCopyBuffer &&) override;
-    void receive(const int, const char *, const size_t) override;
     void disconnect(const int) override;
+
+    void receive(const int, const char *, const size_t) override;
+    void event(const int, const message::ConnectionEvent &e) override;
 
     Layer *upper;
 };

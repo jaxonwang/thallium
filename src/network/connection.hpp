@@ -18,6 +18,7 @@ class Connection {
     // during the whole callback execution, with the guarantee that connection
     // is singal thread read
     typedef std::function<void(const char *, size_t)> receive_callback;
+    typedef std::function<void(const message::ConnectionEvent)> event_callback;
 
   protected:
     using asio_tcp = boost::asio::ip::tcp;
@@ -34,11 +35,12 @@ class Connection {
     std::string socket_str;
 
     receive_callback upper_layer_callback;
+    event_callback upper_layer_event_callback;
     void do_write();
 
   public:
     Connection(execution_context &_context, asio_tcp::socket &&s,
-               const receive_callback &f);
+               const receive_callback &f, const event_callback &e_c);
     Connection(const Connection &c) = delete;
     virtual ~Connection() = default;
 
@@ -62,7 +64,7 @@ class Connection {
 class ServerConnection : public Connection {
   public:
     ServerConnection(execution_context &_context, asio_tcp::socket &&s,
-                     const receive_callback &f);
+                     const receive_callback &f, const event_callback &ec);
 
   protected:
     void header_parser() override;
@@ -72,7 +74,7 @@ class ServerConnection : public Connection {
 class ClientConnection : public Connection {
   public:
     ClientConnection(execution_context &_context, asio_tcp::socket &&s,
-                     const receive_callback &f);
+                     const receive_callback &f, const event_callback &ec);
 
   protected:
     void header_parser() override;
@@ -84,7 +86,8 @@ class ServerConnectionWithHeartbeat : public ServerConnection,
   public:
     ServerConnectionWithHeartbeat(execution_context &_context,
                                   asio_tcp::socket &&s,
-                                  const receive_callback &f);
+                                  const receive_callback &f,
+                                  const event_callback &ec);
 
   public:
     void connection_close() override;
@@ -100,7 +103,8 @@ class ClientConnectionWithHeartbeat : public ClientConnection,
   public:
     ClientConnectionWithHeartbeat(execution_context &_context,
                                   asio_tcp::socket &&s,
-                                  const receive_callback &f);
+                                  const receive_callback &f,
+                                  const event_callback &ec);
 
   public:
     void connection_close() override;

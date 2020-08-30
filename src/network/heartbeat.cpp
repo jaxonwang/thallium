@@ -29,10 +29,10 @@ void HeartbeatChecker::heartbeat_start() {
 using namespace std;
 
 void HeartbeatChecker::heartbeat_received() {
-    auto remain0 = chrono::duration_cast<chrono::nanoseconds>(timer.expires_from_now());
+    // auto remain0 = chrono::duration_cast<chrono::nanoseconds>(timer.expires_from_now());
     timer.expires_from_now(interval);
-    auto remain1 = chrono::duration_cast<chrono::nanoseconds>(timer.expires_from_now());
-    cout << remain0.count() << " " << remain1.count() << endl;
+    // auto remain1 = chrono::duration_cast<chrono::nanoseconds>(timer.expires_from_now());
+    // cout << remain0.count() << " " << remain1.count() << endl;
     timer.async_wait(std::bind(&HeartbeatChecker::when_timeout, this, _1));
 }
 

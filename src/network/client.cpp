@@ -27,14 +27,17 @@ real_addr_type AsyncClient::try_connect(asio_tcp::socket &asio_s,
     TI_DEBUG(format("Successfully connect to {}", ep.address().to_string()));
 
     // just return 0 as conn id
-    function<void(const char *, const size_t)> f =
+  typedef Connection::receive_callback receive_callback;
+  typedef Connection::event_callback event_callback;
+    receive_callback f =
         std::bind(&AsyncClient::receive, this, 0, _1, _2);
+  event_callback e_f = bind(&AsyncClient::event, this, 0, _1);
     ClientConnection *new_con_ptr;
     if (withheartbeat)
         new_con_ptr =
-            new ClientConnectionWithHeartbeat(_context, move(asio_s), f);
+            new ClientConnectionWithHeartbeat(_context, move(asio_s), f, e_f);
     else
-        new_con_ptr = new ClientConnection(_context, move(asio_s), f);
+        new_con_ptr = new ClientConnection(_context, move(asio_s), f, e_f);
     holding.reset(new_con_ptr);
 
     return ep.address().to_v4();
@@ -82,6 +85,10 @@ void AsyncClient::send(const int, message::ZeroCopyBuffer &&message) {
 void AsyncClient::receive(const int conn_id, const char *buf,
                           const size_t length) {
     upper->receive(conn_id, buf, length);
+}
+
+void AsyncClient::event(const int conn_id, const message::ConnectionEvent &e) {
+    upper->event(conn_id, e);
 }
 
 void AsyncClient::disconnect(const int) { holding->connection_close(); }

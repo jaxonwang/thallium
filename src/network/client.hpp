@@ -25,9 +25,11 @@ class AsyncClient : public Layer, public Disconnector, public Stoper {
     execution_context &_context;  // mystrious context used by asio
     std::unique_ptr<ClientConnection> holding;
     bool withheartbeat;
-    void receive(const int, const char *, const size_t) override;
     void send(const int, message::ZeroCopyBuffer &&msg) override;
     void disconnect(const int) override;
+
+    void receive(const int, const char *, const size_t) override;
+    void event(const int, const message::ConnectionEvent &e) override;
     template <class Endpoints>
     real_addr_type try_connect(boost::asio::ip::tcp::socket &asio_s,
                                Endpoints &eps);

@@ -178,6 +178,18 @@ class HeartBeatServerImpl : public ServerModel {
         : restime(resttime), max_round(max_round + 1), round(0) {}
 
   protected:
+    void event(int, const message::ConnectionEvent& e) override {
+        switch (e) {
+            case message::ConnectionEvent::timeout:
+                stop();
+                break;
+            case message::ConnectionEvent::close:
+                break;
+            default:
+                throw std::logic_error("Should't be here!");
+        }
+    }
+
     void logic(int, const message::ReadOnlyBuffer& buf) override {
         // cout << "server" << round << endl;
         if (round++ >= max_round) {
@@ -278,6 +290,10 @@ void setHeartBeatPolicy(const int interval, const int timeout,
 
 void revertHeartBeatPolicy() { setHeartBeatPolicy(0, 0, 0, true); }
 
+bool contain(const string& s, const string& p) {
+    return s.find(p) != string::npos;
+};
+
 TEST(HeartBeat, Basic) {
     ti_test::LoggingTracer t{0, false};
     // need to make sure client will not time out
@@ -290,14 +306,7 @@ TEST(HeartBeat, Basic) {
 
     auto logs = t.collect();
 
-    for (auto &i : logs) {
-        cout << i << endl;
-    }
-    
     ASSERT_TRUE(logs.size() > 7);
-    auto contain = [](const string& s, const string& p) {
-        return s.find(p) != string::npos;
-    };
 
     const string s1{"Accepting connection from"};
     const string s2{"Successfully connect to"};
@@ -326,8 +335,22 @@ TEST(HeartBeat, Basic) {
 }
 
 TEST(HeartBeat, ClientTimeout) {
-    ti_test::LoggingTracer(0);
+    ti_test::LoggingTracer t{0, false};
     setHeartBeatPolicy(5, 5, 20);
     heartbeatsetup(chrono::milliseconds{1}, 10);
     revertHeartBeatPolicy();
+
+    auto logs = t.collect();
+
+    const string s1{"Accepting connection from"};
+    const string s2{"Successfully connect to"};
+    // order might differ
+    ASSERT_TRUE((contain(logs[1], s1) && contain(logs[0], s2)) ||
+                (contain(logs[0], s1) && contain(logs[1], s2)));
+    int error_log_num = 0;
+
+    for (auto& i : logs) {
+        if (contain(i, "ERROR")) error_log_num++;
+    }
+    ASSERT_EQ(error_log_num, 1);
 }

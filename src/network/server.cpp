@@ -23,13 +23,15 @@ void ConnectionManager::new_connection(asio_tcp::socket &&peer) {
   // thread unsafe won't be called by multi threads
   int conn_id = next_id++;
   typedef Connection::receive_callback receive_callback;
+  typedef Connection::event_callback event_callback;
   // add callback
   receive_callback f = bind(&ConnectionManager::receive, this, conn_id, _1, _2);
+  event_callback e_f = bind(&ConnectionManager::event, this, conn_id, _1);
   ServerConnection * new_con_ptr;
   if(withheartbeat)
-      new_con_ptr = new ServerConnectionWithHeartbeat(_context,move(peer), f);
+      new_con_ptr = new ServerConnectionWithHeartbeat(_context,move(peer), f, e_f);
   else
-      new_con_ptr = new ServerConnection(_context, move(peer), f);
+      new_con_ptr = new ServerConnection(_context, move(peer), f, e_f);
   holdings[conn_id] = unique_ptr<ServerConnection>{ new_con_ptr};
   holdings[conn_id]->do_receive_message();
 }
@@ -41,6 +43,10 @@ void ConnectionManager::send(const int conn_id, message::ZeroCopyBuffer &&msg) {
 void ConnectionManager::receive(const int conn_id, const char *buf,
                                 const size_t length) {
   upper->receive(conn_id, buf, length);
+}
+
+void ConnectionManager::event(const int conn_id, const message::ConnectionEvent &e) {
+    upper->event(conn_id, e);
 }
 
 void ConnectionManager::disconnect(const int conn_id) {

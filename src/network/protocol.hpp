@@ -30,6 +30,12 @@ struct Body {
     std::vector<char *> body;
 };
 
+enum class ConnectionEvent : u_int8_t {
+    timeout,
+    close,  // in current design, if server close proactively, server will still
+            // receive such event, caused by impl of ASIO
+};
+
 typedef std::vector<char> CopyableBuffer;
 
 class ZeroCopyBuffer : public CopyableBuffer {
@@ -41,8 +47,8 @@ class ZeroCopyBuffer : public CopyableBuffer {
     ZeroCopyBuffer(ZeroCopyBuffer &&);
     ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
     CopyableBuffer &to_copyable();
-    // note: can directly be serializable because it is a vector, otherwise need to
-    // rewrite this
+    // note: can directly be serializable because it is a vector, otherwise need
+    // to rewrite this
 };
 
 class ReadOnlyBuffer {

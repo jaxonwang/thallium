@@ -10,6 +10,7 @@ class Layer {
   public:
     virtual void send(const int conn_id, message::ZeroCopyBuffer &&msg) = 0;
     virtual void receive(const int conn_id, const char *, const size_t) = 0;
+    virtual void event(const int conn_id, const message::ConnectionEvent &e) = 0;
 };
 
 class Disconnector {
@@ -29,11 +30,13 @@ class BasicModel : public Layer {
     Stoper *stopper;
 
     // non virtual is to be used by subclass
+    // active call
     void send(const int conn_id, message::ZeroCopyBuffer &&msg);
-
-    void receive(const int conn_id, const char *buf, const size_t length);
-
     void disconnect(const int conn_id);
+    // methods been called
+    void receive(const int conn_id, const char *buf, const size_t length);
+    // default impl is ignore all event
+    void event(const int, const message::ConnectionEvent &){}
 
     // neither server or client do close() in this operation
     void stop();
@@ -46,9 +49,11 @@ class BasicModel : public Layer {
 class ServerModel : public BasicModel {};
 
 class ClientModel : public BasicModel {
+  protected:
     virtual void init_logic() = 0;
 
   public:
+    // a method to avoid using explicit conn_id
     void send_to_server(message::ZeroCopyBuffer &&msg);
     void start() override;
 };

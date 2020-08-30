@@ -23,16 +23,20 @@ namespace asio = boost::asio;
 string Connection::socket_to_string() const { return socket_str; }
 
 Connection::Connection(execution_context &_context, asio_tcp::socket &&_socket,
-                       const receive_callback &f)
+                       const receive_callback &f, const event_callback &e_c)
     : _context(_context),
       holding_socket(new asio_tcp::socket{move(_socket)}),
       _receive_buffer(buffer_size),
       _header_buffer(),
       _write_queue(),
       socket_str(),
-      upper_layer_callback(f) {
+      upper_layer_callback(f),
+      upper_layer_event_callback(e_c)
+
+{
 #ifdef DEBUG
-    // for test, the heartbeat is send at short time, without delay will be accumulated
+    // for test, the heartbeat is send at short time, without delay will be
+    // accumulated
     boost::asio::ip::tcp::no_delay option(true);
     holding_socket->set_option(option);
 #endif
@@ -195,8 +199,9 @@ void Connection::connection_close() {
 
 ServerConnection::ServerConnection(execution_context &_context,
                                    asio_tcp::socket &&s,
-                                   const receive_callback &f)
-    : Connection(_context, move(s), f) {}
+                                   const receive_callback &f,
+                                   const event_callback &ec)
+    : Connection(_context, move(s), f, ec) {}
 
 void ServerConnection::header_parser() {
     message::Header h = message::string_to_header(_header_buffer.data());
@@ -212,12 +217,13 @@ void ServerConnection::header_parser() {
 void ServerConnection::handle_eof() {
     TI_DEBUG(format("Client: {} closes connection.", socket_to_string()));
     connection_close();
+    upper_layer_event_callback(message::ConnectionEvent::close);
 }
 
 ServerConnectionWithHeartbeat ::ServerConnectionWithHeartbeat(
     execution_context &_context, asio_tcp::socket &&s,
-    const receive_callback &f)
-    : ServerConnection(_context, move(s), f), HeartbeatChecker(_context) {
+    const receive_callback &f, const event_callback &ec)
+    : ServerConnection(_context, move(s), f, ec), HeartbeatChecker(_context) {
     heartbeat_start();
 }
 
@@ -260,13 +266,14 @@ void ServerConnectionWithHeartbeat::when_timeout(const std::error_code &ec) {
     } else {
         TI_WARN(format("Peer socket: {} timeout", socket_to_string()));
         connection_close();
+        upper_layer_event_callback(message::ConnectionEvent::timeout);
     }
 }
 
 ClientConnection::ClientConnection(execution_context &_context,
                                    asio_tcp::socket &&s,
-                                   const receive_callback &f)
-    : Connection(_context, move(s), f) {}
+                                   const receive_callback &f, const event_callback &ec)
+    : Connection(_context, move(s), f, ec) {}
 
 void ClientConnection::header_parser() {
     message::Header h = message::string_to_header(_header_buffer.data());
@@ -282,12 +289,13 @@ void ClientConnection::header_parser() {
 void ClientConnection::handle_eof() {
     TI_ERROR(format("Server: {} closes connection.", socket_to_string()));
     connection_close();
+    upper_layer_event_callback(message::ConnectionEvent::close);
 }
 
 ClientConnectionWithHeartbeat::ClientConnectionWithHeartbeat(
     execution_context &_context, asio_tcp::socket &&s,
-    const receive_callback &f)
-    : ClientConnection(_context, move(s), f), HeartbeatSender(_context) {
+    const receive_callback &f, const event_callback &ec)
+    : ClientConnection(_context, move(s), f, ec), HeartbeatSender(_context) {
     heartbeat_start();
 }
 

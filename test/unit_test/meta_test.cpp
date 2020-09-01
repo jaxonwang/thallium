@@ -17,7 +17,7 @@ TEST(Meta, LoggingTracer){
        TI_WARN(strs[i]);
     }
 
-    vector<string> logs = t.collect();
+    vector<string> logs = t.stop_and_collect();
 
     ASSERT_EQ(logs.size(), strs.size());
     for (size_t i = 0; i < strs.size(); i++) {

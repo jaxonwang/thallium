@@ -65,11 +65,6 @@ GlobalLoggerManager::GlobalLoggerManager(int level, const char *file_path)
     deamon = move(tmp);
 }
 
-void GlobalLoggerManager::flush_records() {
-    _logger_ptr->flush_all();
-    _ostream_ptr->flush();
-}
-
 GlobalLoggerManager::~GlobalLoggerManager() {
     // does not exception free...
     stop();

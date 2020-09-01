@@ -122,6 +122,7 @@ void Connection::when_message_sent(const size_t length,
                             ec.message()));
             // write error close it
             connection_close();
+            upper_layer_event_callback(message::ConnectionEvent::pipe);
             return;
         }
     }

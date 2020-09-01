@@ -176,7 +176,7 @@ class SenderSideLockQueue {  // senario: logging, one active
         has_msg_cd.notify_one();
     }
 
-    void receive(T &t) {
+    void receive(T &t) { // not thread safe! should not be called concurrently
         if (out_queue.size() == 0) {
             std::unique_lock<std::mutex> iq{in_lock};
             has_msg_cd.wait(iq, [&] { return !in_queue.empty(); });
@@ -187,7 +187,7 @@ class SenderSideLockQueue {  // senario: logging, one active
         return;
     }
 
-    bool try_receive(T &t) {
+    bool try_receive(T &t) { // not thread safe! should not be called concurrently
         if (out_queue.size() == 0) {
             std::lock_guard<std::mutex> lock{in_lock};
             if (in_queue.empty()) return false;

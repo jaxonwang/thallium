@@ -43,7 +43,7 @@ struct LoggingTracerImpl {
 LoggingTracer::LoggingTracer(const int level, const bool changelevelonly)
     : impl(new LoggingTracerImpl()) {
     impl->changelevelonly = changelevelonly;
-    // has_swap_back = false;
+    impl->has_swap_back = false;
     // store current
     thallium::get_global_manager().swap(impl->mnger_holder);
     if (!changelevelonly) {  // no trace the log
@@ -56,13 +56,17 @@ LoggingTracer::LoggingTracer(const int level, const bool changelevelonly)
 
 LoggingTracer::~LoggingTracer() {
     // revert to before
-    thallium::get_global_manager().swap(impl->mnger_holder);
+    if(!impl->has_swap_back)
+        thallium::get_global_manager().swap(impl->mnger_holder);
 }
 
-std::vector<std::string> LoggingTracer::collect() {
+std::vector<std::string> LoggingTracer::stop_and_collect() {
     std::vector<std::string> content;
     if (impl->changelevelonly) return content;
-    thallium::get_global_manager()->flush_records();
+
+    thallium::get_global_manager().swap(impl->mnger_holder);
+    impl->has_swap_back = true;
+    impl->mnger_holder.reset(nullptr);
 
     std::ifstream reader{impl->logfile->filepath};
     std::string line;

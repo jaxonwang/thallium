@@ -67,8 +67,8 @@ class AsyncLogger {
     AsyncLogger(std::ostream &);
     AsyncLogger(const AsyncLogger &) = delete;
     AsyncLogger(AsyncLogger &&) = delete;
-    void flush_one();
-    void flush_all();
+    void flush_one(); // not thread safe
+    void flush_all(); // not thread safe
     void insert_record(const std::string &log);
     void insert_record(std::string &&log);
 };
@@ -90,14 +90,12 @@ class GlobalLoggerManager {
 
   public:
     GlobalLoggerManager(int level);
-
     GlobalLoggerManager(int level, const char *file_path);
+
 
     GlobalLoggerManager(const GlobalLoggerManager &) = delete;
     GlobalLoggerManager(GlobalLoggerManager &&) = delete;
     ~GlobalLoggerManager();
-
-    void flush_records();
 
     AsyncLogger &get_logger();
 

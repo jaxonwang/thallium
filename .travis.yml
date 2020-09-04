@@ -1,0 +1,44 @@
+language: cpp
+jobs:
+  include:
+    - dist: trusty
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-5
+            - cmake
+            - libboost-all-dev
+      env:
+         - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
+
+    - dist: bionic
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-8
+            - cmake
+            - libboost-all-dev
+      env:
+        - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
+
+    - name: "MacOS"
+      os: osx
+      compiler: clang
+
+
+install:
+    - eval "${MATRIX_EVAL}" && export CC=$CC CXX=$CXX
+    - mkdir build && cd build
+    - cmake -DCMAKE_BUILD_TYPE=Debug ..
+    - make -j
+    - cd ..
+
+script:
+    - ./build/test/unit_test
+
+after_success:
+    - bash <(curl -s https://codecov.io/bash)

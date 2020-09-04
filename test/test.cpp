@@ -15,7 +15,7 @@
 namespace ti_test {
 
 TmpFile::TmpFile()
-    : filepath_holder{"/tmp/justatempfilenameXXXXXX"},
+    : filepath_holder{"/var/tmp/justatempfilenameXXXXXX"},
       filepath(filepath_holder) {
     int ret = mkstemp(filepath_holder);
 

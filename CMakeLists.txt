@@ -21,7 +21,11 @@ check_ipo_supported(RESULT ipo_enabled OUTPUT output)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic")
 
 # enable santinizer
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+# only gcc >= 4.9 has undefined sanitizer
+if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.8))
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
+endif()
 
 # log level
 if(${CMAKE_BUILD_TYPE} MATCHES Debug)
@@ -35,9 +39,8 @@ endif()
 # boost // boost why are you so large?
 set(Boost_USE_MULTITHREADED FALSE)
 find_package(Boost 1.67 REQUIRED)
-message("dasfdsafdsaf${Boost_LIBRARY_DIRS}")
 find_library(BOOSTSYSTEM_LIBRARY REQUIRED NAMES boost_system PATHS ${Boost_LIBRARY_DIRS})
-include_directories("${Boost_INCLUDE_DIR}")
+include_directories("${Boost_INCLUDE_DIRS}")
 
 set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})
 

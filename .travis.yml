@@ -4,14 +4,10 @@ jobs:
     - dist: trusty
       addons:
         apt:
-          sources:
-            - ubuntu-toolchain-r-test
           packages:
-            - g++-5
             - cmake
-            - libboost-all-dev
       env:
-         - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
+         - MATRIX_EVAL="CC=gcc && CXX=g++"
 
     - dist: bionic
       addons:
@@ -21,7 +17,6 @@ jobs:
           packages:
             - g++-8
             - cmake
-            - libboost-all-dev
       env:
         - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
 
@@ -29,6 +24,14 @@ jobs:
       os: osx
       compiler: clang
 
+before_install:
+  # install boost
+    - SAVED_DIR=$(pwd)
+    - cd /tmp && curl -fL https://dl.bintray.com/boostorg/release/1.67.0/source/boost_1_67_0.tar.bz2 -o boost_1_67_0.tar.bz2
+    - tar xf ./boost_1_67_0.tar.bz2 && cd ./boost_1_67_0
+    - ./bootstrap.sh --with-libraries=system
+    - sudo ./b2 install
+    - cd ${SAVED_DIR}
 
 install:
     - eval "${MATRIX_EVAL}" && export CC=$CC CXX=$CXX

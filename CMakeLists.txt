@@ -35,7 +35,8 @@ endif()
 # boost // boost why are you so large?
 set(Boost_USE_MULTITHREADED FALSE)
 find_package(Boost 1.67 REQUIRED)
-find_library(BOOSTSYSTEM_LIBRARY REQUIRED NAMES boost_system PATHS ${Boost_LIBRARY_DIRS} NO_DEFAULT_PATH)
+message("dasfdsafdsaf${Boost_LIBRARY_DIRS}")
+find_library(BOOSTSYSTEM_LIBRARY REQUIRED NAMES boost_system PATHS ${Boost_LIBRARY_DIRS})
 include_directories("${Boost_INCLUDE_DIR}")
 
 set(THALLIUM_PROJECT_DIRECTORY, ${CMAKE_CURRENT_SOURCE_DIR})

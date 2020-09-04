@@ -24,7 +24,7 @@ Execution::ExeId ExecutionHub::newExecution(const Place &place,
     // note: can be called from different thread
     unique_ptr<Execution> p{new Execution(place, f_id, move(s_l))};
     auto id = p->id;
-    all_exes.insert({id, move(p)});
+    all_exes[id] = move(p);
     // TODO add to pending
     return id;
 }

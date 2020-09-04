@@ -7,6 +7,7 @@
 
 #include <cstring>
 #include <exception>
+#include <stdexcept>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -18,6 +19,7 @@
 _THALLIUM_BEGIN_NAMESPACE
 
 namespace ti_exception {
+
 class format_error : public std::runtime_error {
   public:
     explicit format_error(const std::string &what_arg) : std::runtime_error(what_arg) {}

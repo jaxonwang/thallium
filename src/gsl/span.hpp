@@ -19,7 +19,6 @@ class span {
     using element_type = ElementType;
     using value_type = typename std::remove_cv<ElementType>::type;
     using size_type = size_t;
-    using difference_type = ptrdiff_t;
     using pointer = element_type*;
     using const_pointer = const element_type*;
     using reference = element_type&;

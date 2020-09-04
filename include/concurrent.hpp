@@ -17,15 +17,15 @@ _THALLIUM_BEGIN_NAMESPACE
 
 // will always try to move if possible
 template <class T,
-          typename std::enable_if<std::is_nothrow_move_assignable<T>::value,
+          typename std::enable_if<std::is_move_assignable<T>::value,
                                   int>::type = 0>
 inline void move_or_copy(T &to, T &from) {
     to = std::move(from);
 }
 
 template <class T, typename std::enable_if<
-                       std::is_nothrow_copy_assignable<T>::value &&
-                           !std::is_nothrow_move_assignable<T>::value,
+                       std::is_copy_assignable<T>::value &&
+                           !std::is_move_assignable<T>::value,
                        int>::type = 0>
 inline void move_or_copy(T &to, T &from) {
     to = from;
@@ -35,8 +35,8 @@ template <class T>
 // T should not be shared/raw pointer, otherwise same object can be refered in
 // both side
 class BasicLockQueue {  // multi producers multi consumers
-    static_assert(std::is_nothrow_copy_assignable<T>::value ||
-                      std::is_nothrow_move_assignable<T>::value,
+    static_assert(std::is_copy_assignable<T>::value ||
+                      std::is_move_assignable<T>::value,
                   "The elements should be nothrow copy assignable or nothrow "
                   "move assignable!");
 
@@ -149,8 +149,8 @@ template <class T>
 class SenderSideLockQueue {  // senario: logging, one active
                              // consumer, many less frequent producers
                              // infinite size
-    static_assert(std::is_nothrow_copy_assignable<T>::value ||
-                      std::is_nothrow_move_assignable<T>::value,
+    static_assert(std::is_copy_assignable<T>::value ||
+                      std::is_move_assignable<T>::value,
                   "The elements should be nothrow copy assignable or nothrow "
                   "move assignable!");
 

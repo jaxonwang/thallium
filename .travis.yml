@@ -1,7 +1,8 @@
 language: cpp
 jobs:
   include:
-    - dist: trusty
+    - name: "Ubuntu 14.04 x86_64, GCC 4.8.2"
+      dist: trusty
       addons:
         apt:
           packages:
@@ -9,7 +10,28 @@ jobs:
       env:
          - MATRIX_EVAL="CC=gcc && CXX=g++"
 
-    - dist: bionic
+    - name: "Ubuntu 18.04 ARM, GCC 7.4.0"
+      os: linux
+      arch: arm64
+      dist: bionic
+      addons:
+        apt:
+          packages:
+            - cmake
+
+    - name: "Ubuntu 18.04 Power8, GCC 7.5.0"
+      os: linux
+      arch: ppc64le
+      dist: bionic
+      addons:
+        apt:
+          packages:
+            - cmake
+      env:
+        - MATRIX_EVAL="LD_PRELOAD=/usr/lib/powerpc64le-linux-gnu/libasan.so.4"
+
+    - name: "Ubuntu 18.04 x86_64, GCC 8.4.0"
+      dist: bionic 
       addons:
         apt:
           sources:
@@ -20,7 +42,7 @@ jobs:
       env:
         - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
 
-    - name: "MacOS"
+    - name: "Darwin"
       os: osx
       compiler: clang
 

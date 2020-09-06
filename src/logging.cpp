@@ -120,10 +120,10 @@ string Record::format() {
     char str_time[128] = {0};
     const char *date_format = "%Y-%m-%d %H:%M:%S.";
     strftime(str_time, sizeof(str_time), date_format, &local_tm);
-    int ms = chrono::duration_cast<chrono::milliseconds>(
+    int ms = chrono::duration_cast<chrono::microseconds>(
                  logging_time.time_since_epoch())
                  .count() %
-             1000;
+             1000000;
     // level
 
     ss << str_time << ms;

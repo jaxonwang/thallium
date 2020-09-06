@@ -14,47 +14,13 @@ using namespace std::placeholders;
 using asio_tcp = boost::asio::ip::tcp;
 namespace asio = boost::asio;
 
-ConnectionManager::ConnectionManager(execution_context &_context, const bool heartbeat)
-    : _context(_context), holdings(), next_id(0), withheartbeat(heartbeat) {
-  // TODO: periodically clean up closed connections
-}
-
-void ConnectionManager::new_connection(asio_tcp::socket &&peer) {
-  // thread unsafe won't be called by multi threads
-  int conn_id = next_id++;
-  typedef Connection::receive_callback receive_callback;
-  typedef Connection::event_callback event_callback;
-  // add callback
-  receive_callback f = bind(&ConnectionManager::receive, this, conn_id, _1, _2);
-  event_callback e_f = bind(&ConnectionManager::event, this, conn_id, _1);
-  ServerConnection * new_con_ptr;
-  if(withheartbeat)
-      new_con_ptr = new ServerConnectionWithHeartbeat(_context,move(peer), f, e_f);
-  else
-      new_con_ptr = new ServerConnection(_context, move(peer), f, e_f);
-  holdings[conn_id] = unique_ptr<ServerConnection>{ new_con_ptr};
-  holdings[conn_id]->do_receive_message();
-}
-
-void ConnectionManager::send(const int conn_id, message::ZeroCopyBuffer &&msg) {
-  holdings[conn_id]->do_send_message(move(msg));
-}
-
-void ConnectionManager::receive(const int conn_id, const char *buf,
-                                const size_t length) {
-  upper->receive(conn_id, buf, length);
-}
-
-void ConnectionManager::event(const int conn_id, const message::ConnectionEvent &e) {
-    upper->event(conn_id, e);
-}
-
-void ConnectionManager::disconnect(const int conn_id) {
-  holdings[conn_id]->connection_close();
-}
-
 AsyncServer::AsyncServer(execution_context &ctx, const ti_socket_t &s, const bool heartbeat)
-    : _socket(s), _context(ctx), _acceptor(_context), _cmanager(_context, heartbeat) {}
+    : _socket(s), _context(ctx), _acceptor(_context) {
+        if(heartbeat)
+            _cmanager.reset(new RealConnectionManager<ServerConnectionWithHeartbeat>{_context});
+        else
+            _cmanager.reset(new RealConnectionManager<ServerConnection>{_context});
+    }
 
 ti_socket_t AsyncServer::server_socket() { return _socket; }
 
@@ -67,7 +33,7 @@ void AsyncServer::when_accept(const std::error_code &ec,
   if (!ec) {
     TI_DEBUG(format("Accepting connection from {}",
                     peer.remote_endpoint().address().to_string()));
-    _cmanager.new_connection(move(peer));
+    _cmanager->new_connection(move(peer));
     do_accept(); // continue accept for next connection
   } else if (ec.value() == asio::error::operation_aborted) {
     TI_DEBUG("Acceptor stopped");
@@ -99,11 +65,11 @@ void RunServer(ServerModel &s_impl, AsyncServer &s_async) {
 
   // need to compose these together
   // shit goes here
-  s_impl.lower = &s_async._cmanager;
+  s_impl.lower = s_async._cmanager.get();
   s_impl.stopper = &s_async;
-  s_impl.disconnector = &s_async._cmanager;
+  s_impl.disconnector = s_async._cmanager.get();
 
-  s_async._cmanager.upper = &s_impl;
+  s_async._cmanager->set_upper(&s_impl);
 
   s_async.start();
   s_impl.start();

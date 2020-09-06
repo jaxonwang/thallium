@@ -54,6 +54,16 @@ class WorkerDeamon : public WkDeamonBase {
                             const message::ReadOnlyBuffer &buf);
 };
 
+class WorkerMessageReceiver;
+using WorkerMessageReceiverBase = StateMachine<WorkerMessageReceiver, ServerModel>;
+class WorkerMessageReceiver: public WorkerMessageReceiverBase{
+    private:
+    public:
+        WorkerMessageReceiver();
+        WorkerMessageReceiver(const WorkerMessageReceiver &other) = delete;
+        WorkerMessageReceiver(WorkerDeamon &&) = delete;
+};
+
 host_file_entry parse_host_file_entry(const std::string &);
 
 std::vector<host_file_entry> read_host_file(const char *);

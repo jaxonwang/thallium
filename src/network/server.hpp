@@ -11,30 +11,6 @@
 
 _THALLIUM_BEGIN_NAMESPACE
 
-class ConnectionManager : public Layer, public Disconnector{
-
-  private:
-    execution_context & _context;
-    std::unordered_map<int, std::unique_ptr<ServerConnection>> holdings;
-    int next_id;
-    bool withheartbeat;
-
-  public:
-    ConnectionManager(execution_context &_context, const bool heartbeat=false);
-    ConnectionManager(const ConnectionManager &c) = delete;
-
-    // when new connection accepted, call this function
-    void new_connection(boost::asio::ip::tcp::socket &&s);
-
-    void send(const int, message::ZeroCopyBuffer &&) override;
-    void disconnect(const int) override;
-
-    void receive(const int, const char *, const size_t) override;
-    void event(const int, const message::ConnectionEvent &e) override;
-
-    Layer *upper;
-};
-
 class AsyncServer : public Stoper{
   private:
     ti_socket_t _socket;
@@ -49,7 +25,7 @@ class AsyncServer : public Stoper{
     void stop() override;
     ti_socket_t server_socket();
 
-    ConnectionManager _cmanager;
+    std::unique_ptr<ConnectionManager> _cmanager;
 
 };
 

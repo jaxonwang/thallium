@@ -57,7 +57,8 @@ void Connection::when_header_received(const std::error_code &ec, size_t) {
             return;
         }
     } else {
-        header_parser();
+        if(holding_socket->is_open()) //drop the msg if closed
+            header_parser();
     }
 }
 
@@ -85,8 +86,10 @@ void Connection::when_payload_received(const size_t length,
         return;
     }
 
-    // send to upper layer
-    upper_layer_callback(_receive_buffer.data(), length);
+    if(holding_socket->is_open()){ // deal with the msg only when is open
+        // send to upper layer
+        upper_layer_callback(_receive_buffer.data(), length);
+    }
 
     do_receive_message();
 }

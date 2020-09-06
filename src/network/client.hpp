@@ -35,6 +35,8 @@ class AsyncClient : public Layer, public Disconnector, public Stoper {
                                Endpoints &eps);
 };
 
+// class MultiClient: pu {}
+
 void RunClient(ClientModel &, AsyncClient &);
 
 _THALLIUM_END_NAMESPACE

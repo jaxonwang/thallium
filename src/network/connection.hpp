@@ -4,8 +4,10 @@
 #include <boost/asio.hpp>
 #include <functional>
 #include <queue>
+#include <unordered_map>
 
 #include "asio_type_wrapper.hpp"
+#include "behavior.hpp"
 #include "common.hpp"
 #include "heartbeat.hpp"
 #include "protocol.hpp"
@@ -111,6 +113,70 @@ class ClientConnectionWithHeartbeat : public ClientConnection,
 
   protected:
     void send_heartbeat(const std::error_code &ec) override;
+};
+
+class ConnectionManager : public Layer, public Disconnector {
+  public:
+    virtual ~ConnectionManager() = default;
+    // when new connection accepted, call this function
+    virtual void new_connection(boost::asio::ip::tcp::socket &&s) = 0;
+
+    virtual void send(const int, message::ZeroCopyBuffer &&) = 0;
+    virtual void disconnect(const int) = 0;
+
+    virtual void receive(const int, const char *, const size_t) = 0;
+    virtual void event(const int, const message::ConnectionEvent &e) = 0;
+    virtual void set_upper(Layer *upper) = 0;
+};
+
+template <class ConnectionType>
+class RealConnectionManager : public ConnectionManager {
+  private:
+    execution_context &_context;
+    std::unordered_map<int, std::unique_ptr<ConnectionType>> holdings;
+    int next_id;
+    Layer *_upper;
+
+  public:
+    RealConnectionManager(execution_context &_context)
+    : _context(_context), holdings(), next_id(0) {
+        // TODO: periodically clean up closed connections
+    }
+    RealConnectionManager(const ConnectionManager &c) = delete;
+
+    // when new connection accepted, call this function
+    void new_connection(boost::asio::ip::tcp::socket &&peer) override {
+        // thread unsafe won't be called by multi threads
+        int conn_id = next_id++;
+        typedef Connection::receive_callback receive_callback;
+        typedef Connection::event_callback event_callback;
+        // add callback
+        receive_callback f = std::bind(&ConnectionManager::receive, this, conn_id,
+                                  std::placeholders::_1, std::placeholders::_2);
+        event_callback e_f = std::bind(&ConnectionManager::event, this, conn_id,
+                                  std::placeholders::_1);
+        auto new_con_ptr =
+            new ConnectionType(_context, std::move(peer), f, e_f);
+        holdings[conn_id] = std::unique_ptr<ConnectionType>{new_con_ptr};
+        holdings[conn_id]->do_receive_message();
+    }
+
+    void send(const int conn_id, message::ZeroCopyBuffer &&msg) override {
+        holdings[conn_id]->do_send_message(move(msg));
+    }
+    void disconnect(const int conn_id) override {
+        holdings[conn_id]->connection_close();
+    }
+
+    void receive(const int conn_id, const char *buf,
+                 const size_t length) override {
+        _upper->receive(conn_id, buf, length);
+    }
+    void event(const int conn_id, const message::ConnectionEvent &e) override {
+        _upper->event(conn_id, e);
+    }
+
+    void set_upper(Layer *upper) override { _upper = upper; }
 };
 
 _THALLIUM_END_NAMESPACE

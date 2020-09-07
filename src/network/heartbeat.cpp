@@ -39,7 +39,7 @@ void HeartbeatChecker::heartbeat_received() {
 
 void HeartbeatChecker::heartbeat_stop() { 
     timer.cancel(); 
-    TI_DEBUG("The heartbeat timer is cancelled.");
+    // TI_DEBUG("The heartbeat timer is cancelled.");
 }
 
 HeartbeatSender::HeartbeatSender(execution_context &_context)

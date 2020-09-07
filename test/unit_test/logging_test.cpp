@@ -40,7 +40,7 @@ TEST(Logging, RecordTest) {
     ASSERT_EQ(hour, now_tm->tm_hour);
     ASSERT_EQ(minute, now_tm->tm_min);
     ASSERT_EQ(second, now_tm->tm_sec);
-    ASSERT_TRUE(ms >= 0 && ms < 1000);
+    ASSERT_TRUE(ms >= 0 && ms < 1000000);
 
     ASSERT_EQ(slices[2], "INFO");
 

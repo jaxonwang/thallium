@@ -119,7 +119,7 @@ class ConnectionManager : public Layer, public Disconnector {
   public:
     virtual ~ConnectionManager() = default;
     // when new connection accepted, call this function
-    virtual void new_connection(boost::asio::ip::tcp::socket &&s) = 0;
+    virtual void new_connection(boost::asio::ip::tcp::socket &&s, const int given_id = -1) = 0;
 
     virtual void send(const int, message::ZeroCopyBuffer &&) = 0;
     virtual void disconnect(const int) = 0;
@@ -145,9 +145,14 @@ class RealConnectionManager : public ConnectionManager {
     RealConnectionManager(const ConnectionManager &c) = delete;
 
     // when new connection accepted, call this function
-    void new_connection(boost::asio::ip::tcp::socket &&peer) override {
-        // thread unsafe won't be called by multi threads
-        int conn_id = next_id++;
+    void new_connection(boost::asio::ip::tcp::socket &&peer, const int given_id) override {
+        // thread unsafe. won't be called by multi threads
+
+        // call if not provided, auto gen
+        int conn_id = given_id >= 0 ? given_id :next_id; // TODO: bad design
+        next_id = conn_id + 1;
+        if(holdings.count(conn_id)>0)
+            throw std::logic_error("The conn id exist!");
         typedef Connection::receive_callback receive_callback;
         typedef Connection::event_callback event_callback;
         // add callback

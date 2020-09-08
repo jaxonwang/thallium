@@ -1,7 +1,10 @@
 #include "network/network.hpp"
 
+#include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
 
 #include "logging.hpp"
 #include "test.hpp"
@@ -315,7 +318,8 @@ TEST(HeartBeat, Basic) {
     const string s2{"Successfully connect to"};
     // order might differ
     ASSERT_TRUE((contain(logs[1], s1) && contain(logs[0], s2)) ||
-                (contain(logs[0], s1) && contain(logs[1], s2))) << full_log;
+                (contain(logs[0], s1) && contain(logs[1], s2)))
+        << full_log;
 
     for (size_t i = 2; i < logs.size() - 3; i++) {
         ASSERT_TRUE(contain(logs[i], "Send heartbeat")) << full_log;
@@ -350,11 +354,186 @@ TEST(HeartBeat, ClientTimeout) {
     const string s2{"Successfully connect to"};
     // order might differ
     ASSERT_TRUE((contain(logs[1], s1) && contain(logs[0], s2)) ||
-                (contain(logs[0], s1) && contain(logs[1], s2))) << full_log;
+                (contain(logs[0], s1) && contain(logs[1], s2)))
+        << full_log;
     int error_log_num = 0;
 
     for (auto& i : logs) {
         if (contain(i, "ERROR")) error_log_num++;
     }
     ASSERT_TRUE(error_log_num <= 2) << full_log;
+}
+
+class SortMapReduceServer : public ServerModel {
+    function<void(vector<int>&)> store_result;
+    int nreduce;
+    vector<int> numbers;
+    int finished;
+
+  public:
+    SortMapReduceServer(function<void(vector<int>&)>& f, const int nreduce)
+        : store_result(f), nreduce(nreduce), finished(0) {}
+
+    void event(const int conn_id, const message::ConnectionEvent& e) override {
+
+        switch(e){
+            case message::ConnectionEvent::close:
+                TI_INFO(format("client {} closes connection.", conn_id));
+                break;
+            default:
+                throw std::logic_error(format("Recevied unexpected event: {}",
+                                            static_cast<int>(e)));
+        }
+    }
+
+    void logic(const int conn_id, const message::ReadOnlyBuffer& buf) override {
+        string s{buf.data(), buf.size()};
+        TI_INFO(format("Receive from {}: {}", conn_id, s));
+        auto _numbers = string_split<vector>(s, ",");
+        for (auto& n : _numbers) {
+            numbers.push_back(stoi(n));
+        }
+        string reply{"ok"};
+        message::CopyableBuffer tmp{reply.data(), reply.data() + reply.size()};
+        send(conn_id, message::ZeroCopyBuffer{move(tmp)});
+        if (++finished == nreduce) {
+            stop();
+            sort(numbers.begin(), numbers.end());
+            store_result(numbers);
+        }
+    }
+};
+
+const int sort_upper_bound = 10000;
+
+class SortMapReduceClient : public MultiClientModel {
+    int nreduce;
+    vector<vector<int>> numbers;
+    int finished;
+    int next_dest;
+
+    void fetch_and_send() {
+        int dest = next_dest++;
+        vector<string> numbers_to_send;
+        for (auto &i : numbers[dest]) {
+            numbers_to_send.push_back(to_string(i));
+        }
+        string msg = string_join(numbers_to_send, ",");
+        TI_INFO(format("Sending to server {}: {}", dest, msg));
+        message::CopyableBuffer buf{msg.data(), msg.data() + msg.size()};
+        send(dest, message::ZeroCopyBuffer{move(buf)});
+    }
+
+  public:
+    SortMapReduceClient(vector<int>& nums, const int nreduce)
+        : nreduce(nreduce), numbers(nreduce), finished(0), next_dest(0) {
+        sort(numbers.begin(), numbers.end());
+
+        size_t chunk_size = sort_upper_bound / nreduce;
+        for (auto &i : nums) {
+            numbers[i / chunk_size].push_back(i);
+        }
+    }
+    void event(const int, const message::ConnectionEvent& e) override {
+        switch (e) {
+            case message::ConnectionEvent::start:
+                fetch_and_send();
+                finished++;
+                break;
+            default:
+                throw std::logic_error("Should't be here!");
+        }
+    }
+
+    void logic(const int conn_id, const message::ReadOnlyBuffer& buf) override {
+        string r{buf.data(), buf.size()};
+        if (r != "ok") cout << "unmatch: " << r << endl;
+        TI_INFO(format("recevied OK from server: {}", conn_id));
+        disconnect(conn_id);
+        if (finished != nreduce) {
+            fetch_and_send();
+            finished++;
+        }
+    }
+};
+
+vector<int> mrsetup(const int nreduce) {
+    vector<int> ports(nreduce);
+    int ready = 0;
+
+    mutex m;
+    condition_variable cv;
+
+    vector<vector<int>> results(nreduce);
+
+    auto run_server = [&](const int rank) {
+        execution_context ctx{1};
+        std::error_code ec;
+        ti_socket_t skt = {0, resolve("127.0.0.1", ec)};
+        AsyncServer s{ctx, skt};
+        function<void(vector<int>&)> f{
+            [&](vector<int>& result) { results[rank] = (result); }};
+        SortMapReduceServer s_impl(f, nreduce);
+        RunServer(s_impl, s);
+        ports[rank] = s.server_socket().port;
+        {
+            lock_guard<mutex> l(m);
+            ready++;
+        }
+        cv.notify_one();
+
+        ctx.run();
+    };
+    auto run_client = [&](vector<int>& nums, const int nreduce,
+                          const MultiClient::address_book_t& b) {
+        execution_context ctx{1};
+        MultiClient c(ctx, b);
+        SortMapReduceClient c_impl(nums, nreduce);
+        RunClient(c_impl, c);
+        ctx.run();
+    };
+
+    vector<thread> servers;
+    for (int i = 0; i < nreduce; i++) {
+        servers.push_back(thread(run_server, i) );
+    }
+
+    {
+        unique_lock<mutex> l{m};
+        cv.wait(l, [&](){return ready == nreduce;});
+    }
+    MultiClient::address_book_t book;
+    for (int i = 0; i < nreduce; i++) {
+        book[i] = make_pair(string{"127.0.0.1"}, ports[i]);
+    }
+
+    vector<vector<int>> partitions(nreduce);
+    for (int i = 0; i < sort_upper_bound; i++) {
+        partitions[i % nreduce].push_back(i);
+    }
+
+    vector<thread> clients;
+    for (int i = 0; i < nreduce; i++) {
+       clients.push_back(thread(run_client, ref(partitions[i]), nreduce, book));
+    }
+    for (int i = 0; i < nreduce; i++) {
+        clients[i].join();
+        servers[i].join();
+    }
+
+    vector<int> finalresult;
+    for (auto &i : results) {
+        for (auto & j: i) {
+            finalresult.push_back(j);
+        }
+    }
+    return finalresult;
+}
+
+TEST(MultiClient, Base){
+    ti_test::LoggingTracer t{2};
+    auto result = mrsetup(10);
+    for (size_t i = 1; i < result.size(); i++) {
+        ASSERT_TRUE(result[i-1] < result[i]);
+    }
 }

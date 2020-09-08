@@ -1,6 +1,9 @@
 #ifndef _THALLIUM_NETWORK_CLIENT
 #define _THALLIUM_NETWORK_CLIENT
 
+#include <unordered_map>
+#include <unordered_set>
+
 #include "behavior.hpp"
 #include "common.hpp"
 #include "connection.hpp"
@@ -30,14 +33,51 @@ class AsyncClient : public Layer, public Disconnector, public Stoper {
 
     void receive(const int, const char *, const size_t) override;
     void event(const int, const message::ConnectionEvent &e) override;
-    template <class Endpoints>
-    real_addr_type try_connect(boost::asio::ip::tcp::socket &asio_s,
-                               Endpoints &eps);
+
+    void init_connection(boost::asio::ip::tcp::socket &&);
 };
 
-// class MultiClient: pu {}
+class MultiClient : public Layer, public Disconnector, public Stoper {
+  private:
+    execution_context &_context;
 
-void RunClient(ClientModel &, AsyncClient &);
+  public:
+    typedef std::unordered_map<int, std::pair<std::string, int>> address_book_t;
+
+  private:
+    address_book_t address_book;  // id-> addr,port
+    RealConnectionManager<ClientConnection> conmanager;
+    std::unordered_set<int> established;
+
+    void do_connect(const int);
+
+  public:
+    MultiClient(execution_context &ctx, const address_book_t &address_book);
+    void start();
+    void stop() override;
+    Layer *upper;
+
+  private:
+    void send(const int, message::ZeroCopyBuffer &&msg) override;
+    void disconnect(const int) override;
+
+    void receive(const int, const char *, const size_t) override;
+    void event(const int, const message::ConnectionEvent &e) override;
+};
+
+template <class ClientModelType, class ClientType>
+void RunClient(ClientModelType &c_impl, ClientType &c_async) {
+    // need to compose these together
+    // shit goes here
+    c_impl.lower = &c_async;
+    c_impl.stopper = &c_async;
+    c_impl.disconnector = &c_async;
+
+    c_async.upper = &c_impl;
+
+    c_async.start();
+    c_impl.start();
+}
 
 _THALLIUM_END_NAMESPACE
 

@@ -34,7 +34,8 @@ enum class ConnectionEvent : u_int8_t {
     timeout,
     close,  // in current design, if server close proactively, server will still
             // receive such event, caused by impl of ASIO
-    pipe, //when write to a closed fd
+    pipe, // when write to a closed fd
+    start, // only use by client, to run the initial sending message in the main loop
 };
 
 typedef std::vector<char> CopyableBuffer;

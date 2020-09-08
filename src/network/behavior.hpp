@@ -48,6 +48,8 @@ class BasicModel : public Layer {
 
 class ServerModel : public BasicModel {};
 
+class MultiClientModel : public BasicModel {};
+
 class ClientModel : public BasicModel {
   protected:
     virtual void init_logic() = 0;

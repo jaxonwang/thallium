@@ -111,20 +111,27 @@ void CoordinatorServer::firstconnection(const int conn_id,
     if (workers.size() == worker_num) {
         TI_INFO("All worker registered.");
         go_to_state(&CoordinatorServer::peersinfo);
-        broadcast();
+        // broadcast();
         stop();
     }
 }
 
-void CoordinatorServer::broadcast() {}
+void CoordinatorServer::broadcast(message::ZeroCopyBuffer &&buf) {
+    for (auto & pair: workers) {
+        int dest = pair.first;
+        send(dest, move(buf));
+    }
+}
 void CoordinatorServer::peersinfo(const int, const message::ReadOnlyBuffer &) {}
 
-WorkerDeamon::WorkerDeamon(const string &cookie)
+WorkerDeamon::WorkerDeamon(const string &cookie, const WorkerInfo & info)
     : WkDeamonBase(*this, &WorkerDeamon::firstconnection_ok),
-      fc_cookie(cookie) {}
+      fc_cookie(cookie),  worker_info(info){
+      }
 
 void WorkerDeamon::init_logic() {
-    send_to_server(to_buffer(Firsconnection(fc_cookie)));
+    // send data server info to master
+    send_to_server(to_buffer(Firsconnection(fc_cookie, worker_info)));
 }
 void WorkerDeamon::firstconnection_ok(const int conn_id,
                                       const message::ReadOnlyBuffer &buf) {

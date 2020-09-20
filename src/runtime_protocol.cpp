@@ -79,9 +79,7 @@ bool operator!=(const FirstConCookie a, const FirstConCookie& b) {
     return !(a == b);
 }
 
-Firsconnection::Firsconnection(const string& cookie) : firstcookie(cookie) {}
-
-Firsconnection::Firsconnection(const FirstConCookie cookie)
-    : firstcookie(cookie) {}
+Firsconnection::Firsconnection(const FirstConCookie cookie, const WorkerInfo &worker_info)
+    : firstcookie(cookie), worker_info(worker_info) {}
 
 _THALLIUM_END_NAMESPACE

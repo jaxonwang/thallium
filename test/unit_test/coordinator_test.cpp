@@ -97,7 +97,7 @@ TEST(Coordinator, Register) {
         execution_context ctx{1};
         int p = server_port.load();
         AsyncClient c(ctx, "127.0.0.1", p);
-        WorkerDeamon c_impl(cookie);
+        WorkerDeamon c_impl(cookie, WorkerInfo{});
         RunClient(c_impl, c);
         ctx.run();
     };

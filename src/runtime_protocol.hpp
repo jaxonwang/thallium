@@ -6,6 +6,7 @@
 #include "common.hpp"
 #include "network/network.hpp"
 #include "serialize.hpp"
+#include "worker.hpp"
 
 _THALLIUM_BEGIN_NAMESPACE
 
@@ -67,9 +68,9 @@ message::ZeroCopyBuffer to_buffer(const MsgClass& msgobj) {
 class Firsconnection : public Message {
   public:
     FirstConCookie firstcookie;
+    WorkerInfo worker_info;
     Firsconnection() = default;
-    Firsconnection(const FirstConCookie cookie);
-    Firsconnection(const std::string& cookie);
+    Firsconnection(const FirstConCookie cookie, const WorkerInfo &workerinfo);
     constexpr static MessageType message_type = MessageType::firstconnection;
     template <class Archive>
     void serializable(Archive& ar) {

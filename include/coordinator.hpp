@@ -9,6 +9,7 @@
 #include "network/network.hpp"
 #include "runtime_protocol.hpp"
 #include "place.hpp"
+#include "worker.hpp"
 
 
 _THALLIUM_BEGIN_NAMESPACE
@@ -37,7 +38,7 @@ class CoordinatorServer : public CoordServerBase {
                       const std::function<void(const cookie_set &)> &send_cookie);
     void firstconnection(const int conn_id,
                          const message::ReadOnlyBuffer &buf);
-    void broadcast();
+    void broadcast(message::ZeroCopyBuffer &&buf);
     void peersinfo(const int, const message::ReadOnlyBuffer &);
 };
 
@@ -46,22 +47,23 @@ using WkDeamonBase = StateMachine<WorkerDeamon, ClientModel>;
 class WorkerDeamon : public WkDeamonBase {
   private:
     FirstConCookie fc_cookie;
+    WorkerInfo worker_info;
 
   public:
-    WorkerDeamon(const std::string &cookie);
+    WorkerDeamon(const std::string &cookie, const WorkerInfo & info);
     void init_logic();
     void firstconnection_ok(const int conn_id,
                             const message::ReadOnlyBuffer &buf);
 };
 
-class WorkerMessageReceiver;
-using WorkerMessageReceiverBase = StateMachine<WorkerMessageReceiver, ServerModel>;
-class WorkerMessageReceiver: public WorkerMessageReceiverBase{
+class WorkerDataServer;
+using WorkerDataServerBase = StateMachine<WorkerDataServer, ServerModel>;
+class WorkerDataServer: public WorkerDataServerBase{
     private:
     public:
-        WorkerMessageReceiver();
-        WorkerMessageReceiver(const WorkerMessageReceiver &other) = delete;
-        WorkerMessageReceiver(WorkerDeamon &&) = delete;
+        WorkerDataServer();
+        WorkerDataServer(const WorkerDataServer &other) = delete;
+        WorkerDataServer(WorkerDeamon &&) = delete;
 };
 
 host_file_entry parse_host_file_entry(const std::string &);

@@ -217,3 +217,43 @@ TEST(Serializer, RealSize) {
     ASSERT_EQ(real_size(v2), (1 + v2_len) * v2_len / 2 * sizeof(char) +
                                  v2_len * size_t_size + size_t_size);
 }
+
+struct MapTesttype {
+    int i;
+    unordered_map<int, vector<string>> the_map;
+    double j;
+    template <class Ar>
+    void serializable(Ar& ar) {
+        ar & i;
+        ar & the_map;
+        ar & j;
+    }
+};
+
+TEST(Serializer, UnorderdMap) {
+    unordered_map<int, vector<string>> from_map;
+    // init
+    for (int i = 0; i < 20; i++) {
+        vector<string> tmp;
+        for (int j = 0; j <= i; j++) {
+            tmp.push_back(to_string(j));
+        }
+        from_map[i] = move(tmp);
+    }
+    MapTesttype from_obj{1, from_map, 3.14};
+    StringSaveArchive ar;
+    ar << from_obj;
+    string s = ar.build();
+    StringLoadArchive lar{s};
+    MapTesttype to_obj;
+    lar >> to_obj;
+
+    ASSERT_EQ(from_obj.i, to_obj.i);
+    ASSERT_EQ(from_obj.j, to_obj.j);
+    ASSERT_EQ(from_obj.the_map.size(), to_obj.the_map.size());
+
+    for (auto &kv : from_map) {
+        ASSERT_EQ(kv.second, to_obj.the_map[kv.first]);
+    }
+
+}

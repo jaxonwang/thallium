@@ -6,6 +6,7 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include <unordered_map>
 
 #include "common.hpp"
 #include "gsl/span.hpp"
@@ -232,6 +233,17 @@ Archive &operator<<(Archive &a, const std::vector<T> &v) {
     return a;
 }
 
+template <class Archive, class K, class V, enable_if_savearchive_t<Archive> = 0>
+Archive &operator<<(Archive &a, const std::unordered_map<K, V> &map) {
+    size_t length = map.size();
+    a << length;
+    for (auto &kv : map) {
+        a << kv.first;
+        a << kv.second;
+    }
+    return a;
+}
+
 template <class Archive, enable_if_loadarchive_t<Archive> = 0>
 Archive &operator>>(Archive &a, std::string &s) {
     deserialize(a, s);
@@ -265,6 +277,20 @@ template <class Archive, class T, size_t N,
 Archive &operator>>(Archive &a, T (&t)[N]) {
     auto sp = gsl::make_static_span(t);
     deserialize(a, sp);
+    return a;
+}
+
+template <class Archive, class K, class V, enable_if_loadarchive_t<Archive> = 0>
+Archive &operator>>(Archive &a, std::unordered_map<K, V> &map) {
+    size_t length;
+    a >> length;
+    for (size_t i = 0; i < length; i++) {
+        K k;
+        V v;
+        a >> k;
+        a >> v;
+        map[k] = v;
+    }
     return a;
 }
 
@@ -362,7 +388,7 @@ template <
     class T, size_t N,
     typename std::enable_if<!is_trivially_serializable<T>::value, int>::type>
 constexpr size_t real_size(const T (&arr)[N]) {
-    // minus a size_t since real_size span will account lenght for dynamic span
+    // minus a size_t since real_size span will account length for dynamic span
     return real_size(gsl::make_span(arr)) - sizeof(size_t);
 }
 

@@ -13,6 +13,10 @@ struct WorkerDataServerInfo{
         ar& port;
         ar& addr;
     }
+
+    std::string to_string(){
+        return addr + ":" + std::to_string(port);
+    }
 };
 
 struct WorkerInfo{

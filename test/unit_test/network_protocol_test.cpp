@@ -25,7 +25,7 @@ TEST(NetworkProtocol, ZeroCopyBuffer) {
         ASSERT_EQ(b.data()[i], 1);
     }
 
-    CopyableBuffer& cb = b.to_copyable();
+    CopyableBuffer& cb = b.copyable_ref();
     CopyableBuffer cb1 = cb;
 
     ASSERT_EQ(cb1.size(), 64);

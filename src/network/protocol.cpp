@@ -21,7 +21,7 @@ ZeroCopyBuffer::ZeroCopyBuffer(ZeroCopyBuffer &&other)
 ZeroCopyBuffer::ZeroCopyBuffer(CopyableBuffer &&other)
     : CopyableBuffer(move(other)) {}
 
-CopyableBuffer &ZeroCopyBuffer::to_copyable() {
+CopyableBuffer &ZeroCopyBuffer::copyable_ref() {
     return static_cast<CopyableBuffer &>(*this);
 }
 

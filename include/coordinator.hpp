@@ -32,6 +32,7 @@ class CoordinatorServer : public CoordServerBase {
     typedef std::unordered_set<FirstConCookie> cookie_set;
     cookie_set cookies;
     std::unordered_map<int, PlaceObj> workers;
+    std::unordered_map<int, WorkerInfo> worker_info;
     size_t worker_num;
   public:
     CoordinatorServer(const size_t worker_size,
@@ -53,6 +54,8 @@ class WorkerDeamon : public WkDeamonBase {
     WorkerDeamon(const std::string &cookie, const WorkerInfo & info);
     void init_logic();
     void firstconnection_ok(const int conn_id,
+                            const message::ReadOnlyBuffer &buf);
+    void recv_worker_info(const int conn_id,
                             const message::ReadOnlyBuffer &buf);
 };
 

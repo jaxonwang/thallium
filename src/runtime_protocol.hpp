@@ -85,11 +85,16 @@ class FirsconnectionOK : public Message {
     void serializable(Archive&) {}
 };
 
-class Peerinfo : public Message {
+class WorkerInfoMap: public Message {
   public:
-    std::string address;
-    unsigned short port;
-    Peerinfo(const std::string& address, const unsigned short port);
+    std::unordered_map<int, WorkerInfo> worker_info;
+    constexpr static MessageType message_type = MessageType::peersinfo;
+    WorkerInfoMap() = default;
+    WorkerInfoMap(const std::unordered_map<int, WorkerInfo> worker_info):worker_info(worker_info){}
+    template <class Archive>
+        void serializable(Archive &ar){
+            ar & worker_info;
+        }
 };
 
 _THALLIUM_END_NAMESPACE

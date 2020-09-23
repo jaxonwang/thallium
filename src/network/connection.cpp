@@ -153,7 +153,7 @@ void Connection::do_write() {
 
     for (auto &zero_cpy_buf : *buf_seq_ptr) {
         total_size += zero_cpy_buf.size();
-        buffers_to_write.push_back(asio::buffer(zero_cpy_buf.to_copyable()));
+        buffers_to_write.push_back(asio::buffer(zero_cpy_buf.copyable_ref()));
     }
 
     std::error_code ec;

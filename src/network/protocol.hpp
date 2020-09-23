@@ -48,7 +48,7 @@ class ZeroCopyBuffer : public CopyableBuffer {
     ZeroCopyBuffer(CopyableBuffer &&);
     ZeroCopyBuffer(ZeroCopyBuffer &&);
     ZeroCopyBuffer &operator=(const ZeroCopyBuffer &) = delete;
-    CopyableBuffer &to_copyable();
+    CopyableBuffer &copyable_ref();
     // note: can directly be serializable because it is a vector, otherwise need
     // to rewrite this
 };

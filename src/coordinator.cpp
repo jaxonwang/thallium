@@ -105,23 +105,28 @@ void CoordinatorServer::firstconnection(const int conn_id,
     } else {
         cookies.erase(f.firstcookie);
         workers[conn_id] = PlaceObj(conn_id);
+        worker_info[conn_id] = f.worker_info;
         TI_INFO(format("Worker {} registered.", conn_id));
         send(conn_id, to_buffer<FirsconnectionOK>(FirsconnectionOK()));
     }
     if (workers.size() == worker_num) {
         TI_INFO("All worker registered.");
         go_to_state(&CoordinatorServer::peersinfo);
-        // broadcast();
+        broadcast(to_buffer(WorkerInfoMap{worker_info}));
         stop();
     }
 }
 
 void CoordinatorServer::broadcast(message::ZeroCopyBuffer &&buf) {
+    // hold the buf in case since it will be moved
+    message::CopyableBuffer buf_holder = buf.copyable_ref();
     for (auto & pair: workers) {
         int dest = pair.first;
-        send(dest, move(buf));
+        message::CopyableBuffer tmp_buf = buf_holder;
+        send(dest, move(tmp_buf)); // implcitly cast copyable to zerocopybuffer
     }
 }
+
 void CoordinatorServer::peersinfo(const int, const message::ReadOnlyBuffer &) {}
 
 WorkerDeamon::WorkerDeamon(const string &cookie, const WorkerInfo & info)
@@ -133,10 +138,25 @@ void WorkerDeamon::init_logic() {
     // send data server info to master
     send_to_server(to_buffer(Firsconnection(fc_cookie, worker_info)));
 }
-void WorkerDeamon::firstconnection_ok(const int conn_id,
+
+void WorkerDeamon::firstconnection_ok(const int ,
                                       const message::ReadOnlyBuffer &buf) {
     assert_message_type(*this, buf, MessageType::firstconnectionok);
     TI_INFO("Successfully connected to the coordinator.");
+    go_to_state(&WorkerDeamon::recv_worker_info);
+}
+
+void WorkerDeamon::recv_worker_info(const int conn_id, const message::ReadOnlyBuffer &buf){
+    WorkerInfoMap w_info = from_buffer<WorkerInfoMap>(buf);
+    TI_INFO("Received peer info.");
+    vector<string> items;
+    for (auto &kv : w_info.worker_info) {
+        items.push_back(to_string(kv.first));
+        items.push_back(kv.second.data_server.to_string());
+        items.push_back(", ");
+    }
+    TI_DEBUG(format("Peer addresses: {}", string_join(items, "")));
+
     disconnect(conn_id);
     stop();
 }

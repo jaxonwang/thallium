@@ -152,6 +152,7 @@ void deserialize(Archive &a, gsl::static_span<T, N> &sp) {
     _span_deserialize(a, sp);
 }
 
+// vector, string, go here
 template <class Archive,
           class Resizeable,  // Resizeable should be linear storage
           enable_if_loadarchive_t<Archive> = 0,
@@ -329,6 +330,9 @@ size_t real_size(const std::string &s);
 template <class T>
 size_t real_size(const std::vector<T> &v);
 
+template<class K, class V>
+size_t real_size(const std::unordered_map<K,V> &m);
+
 class SizeArchive {
   private:
     size_t total_size;
@@ -395,6 +399,16 @@ constexpr size_t real_size(const T (&arr)[N]) {
 template <class T>
 size_t real_size(const std::vector<T> &v) {
     return real_size(gsl::make_span(v));
+}
+
+template<class K, class V>
+size_t real_size(const std::unordered_map<K,V> &m){
+    size_t sum = sizeof(size_t);
+    for (auto &kv : m) {
+        sum += real_size(kv.first);
+        sum += real_size(kv.second);
+    }    
+    return sum;
 }
 
 // below is used by boxedvalue and submitter

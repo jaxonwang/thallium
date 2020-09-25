@@ -2,6 +2,7 @@
 #define _THALLIUM_UTILS
 
 #include <mutex>
+#include <thread>
 
 #include "common.hpp"
 
@@ -33,6 +34,20 @@ struct tl_remove_cvref {
 
 template <class T>
 using tl_remove_cvref_t = typename tl_remove_cvref<T>::type;
+
+class thread_join_wrapper {
+    public:
+        std::thread thread;
+        thread_join_wrapper(std::thread &&t):thread(move(t)){}
+        ~thread_join_wrapper(){
+            if (thread.joinable()){
+                try {
+                    thread.join();
+                }catch (const std::system_error& e){
+                }
+            }
+        }
+};
 
 _THALLIUM_END_NAMESPACE
 
